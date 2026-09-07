@@ -20,6 +20,9 @@ export default class AuthMiddleware {
     } = {}
   ) {
     await ctx.auth.authenticateUsing(options.guards, { loginRoute: this.redirectTo })
+    if (!ctx.auth.user!.isActive) {
+      return ctx.response.unauthorized({ message: 'Your account is deactivated.' })
+    }
     return next()
   }
 }

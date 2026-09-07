@@ -193,6 +193,12 @@ export default class AuthController {
       return response.unauthorized(AuthController._invalidCredentialsResponse())
     }
 
+     if (!user.isActive) {
+      return response.unauthorized({
+        message: 'This account has been deactivated. Contact your administrator.'
+      })
+    }
+
     // 3) ⚠️ COMPTE BLOQUÉ — AVANT Hash.verify (éviter DoS sur Argon2)
     const lockStatus = await LoginSecurityService.isAccountLocked(user)
     if (lockStatus.locked) {
@@ -981,7 +987,8 @@ export default class AuthController {
           RateType.query()
             .whereIn('hotel_id', hotelIds)
             .where('is_deleted', false)
-            .preload('roomTypes', (query) => query.preload('roomRates')),
+            .orderBy('sort_order', 'asc')
+            .preload('roomTypes', (query) => query.preload('roomRates'))
         ])
 
       await LoggerService.log({
