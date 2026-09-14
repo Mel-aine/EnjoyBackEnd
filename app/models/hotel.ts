@@ -90,6 +90,11 @@ export default class Hotel extends BaseModel {
   declare notificationSettings: Record<string, any>
 
 
+  @column()
+  declare whatsappFeedbackEnabled: boolean
+
+  @column()
+  declare whatsappFeedbackDelayHours: number
 
   @column({ columnName: 'license_number' })
   declare licenseNumber: string | null
