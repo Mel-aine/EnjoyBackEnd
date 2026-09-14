@@ -1,7 +1,4 @@
 export default class WhatsappFeedbackService {
-  static buildGoogleReviewLink(googlePlaceId: string) {
-    return `https://search.google.com/local/writereview?placeid=${googlePlaceId}`
-  }
 
   static buildMessage(guestName: string, hotelName: string, googleLink: string | null) {
     const reviewBlock = googleLink
@@ -24,9 +21,9 @@ L'équipe ${hotelName}`
     guestName: string
     guestPhone: string
     hotelName: string
-    googlePlaceId: string
+    googlePlaceId: string | null
   }) {
-    const googleLink =this.buildGoogleReviewLink(params.googlePlaceId)
+    const googleLink =params.googlePlaceId || null
     const message = this.buildMessage(params.guestName, params.hotelName, googleLink)
     const waLink = this.buildWaLink(params.guestPhone, message)
     return { message, waLink }
