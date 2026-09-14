@@ -75,6 +75,7 @@ import WhatsappLogsController from '#controllers/whatsapp_logs_controller'
 import WhatsAppWebhookController from '#controllers/whatsapp_webhooks_controller'
 import GuestFeedbacksController from '#controllers/guest_feedbacks_controller'
 import WhatsappTemplatesController from '#controllers/whatsapp_templates_controller'
+import WhatsappFeedbackMessagesController from '#controllers/whatsapp_feedback_messages_controller'
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -1756,6 +1757,11 @@ router
         router.post('/hotels/:hotelId/whatsapp/test', whatsappController.test.bind(whatsappController))
         router.get('/hotels/:hotelId/whatsapp-logs', whatsappLogsController.index.bind(whatsappLogsController))
         router.get('/hotels/:id/satisfaction-stats', guestFeedbacksController.index.bind(guestFeedbacksController))
+
+        //whatsapp feedbacks
+        router.get('/whatsapp-feedback/:hotelId/pending', [WhatsappFeedbackMessagesController, 'pendingForHotel'])
+        router.get('/whatsapp-feedback/reservation/:reservationId', [WhatsappFeedbackMessagesController, 'pendingForReservation'])
+        router.post('/whatsapp-feedback/:id/mark-sent', [WhatsappFeedbackMessagesController, 'markSent'])
 
 
 
