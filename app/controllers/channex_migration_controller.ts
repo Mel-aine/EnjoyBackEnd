@@ -14,6 +14,7 @@ import logger from '@adonisjs/core/services/logger'
 import ReservationCreationService from '../services/reservation_creation_service.js'
 import env from '#start/env'
 import { DateTime } from 'luxon'
+import { TransactionCategory, TransactionType } from '#app/enums'
 
 /**
  * Controller for migrating hotel data to Channex.io system
@@ -1585,12 +1586,89 @@ export default class ChannexMigrationController {
               otaReservationCode: bookingData.ota_reservation_code ?? existingReservation.otaReservationCode ?? null,
               otaStatus: bookingData.status ?? existingReservation.otaStatus ?? null,
               otaGuarantee: bookingData.guarantee ?? existingReservation.otaGuarantee ?? null,
+              paymentCollect: bookingData.payment_collect ?? existingReservation.paymentCollect ?? null,
+              otaCommission: bookingData.ota_commission ?? existingReservation.otaCommission ?? null,
             })
             if (reservationStatus === 'cancelled') {
+              // Extract cancellation fee from services (top-level and room-level)
+              let cancellationFeeAmount = 0
+              const bookingServices = bookingData.services || []
+              for (const svc of bookingServices) {
+                if (svc.type === 'Cancellation Fee' || svc.name === 'Cancellation Fee') {
+                  cancellationFeeAmount += parseFloat(svc.total_price || '0')
+                }
+              }
+              // Also check room-level services for cancellation fees
+              if (bookingData.rooms && Array.isArray(bookingData.rooms)) {
+                for (const room of bookingData.rooms) {
+                  const roomServices = room.services || []
+                  for (const svc of roomServices) {
+                    if (svc.type === 'Cancellation Fee' || svc.name === 'Cancellation Fee') {
+                      cancellationFeeAmount += parseFloat(svc.total_price || '0')
+                    }
+                  }
+                }
+              }
+
+              // Apply currency conversion if needed for the cancellation fee
+              if (cancellationFeeAmount > 0) {
+                try {
+                  const CurrencyCacheService = (await import('../services/currency_cache_service.js')).default
+                  const defaultCurrencyPayload = await CurrencyCacheService.getHotelDefaultCurrency(existingReservation.hotelId)
+                  const baseCurrencyCode = (defaultCurrencyPayload?.currencyCode || '').toUpperCase()
+                  const rawBookingCurrency = (bookingData.currency || bookingData.currency_code || '').toUpperCase()
+                  const isCrossRate = !!rawBookingCurrency && rawBookingCurrency !== baseCurrencyCode
+                  if (isCrossRate) {
+                    const Currency = (await import('../models/currency.js')).default
+                    const sourceCurrency = await Currency.query()
+                      .where('hotelId', existingReservation.hotelId)
+                      .where('currencyCode', rawBookingCurrency)
+                      .select('exchangeRate', 'currencyCode')
+                      .first()
+                    const exchangeRate = sourceCurrency?.exchangeRate || 1
+                    cancellationFeeAmount = exchangeRate * cancellationFeeAmount
+                    await LoggerService.log({
+                      actorId: userId,
+                      action: 'CANCELLATION_FEE_CURRENCY_CONVERTED',
+                      entityType: 'Reservation',
+                      entityId: existingReservation.id,
+                      hotelId: existingReservation.hotelId,
+                      description: `Cancellation fee currency converted: ${rawBookingCurrency} -> ${baseCurrencyCode} with rate ${exchangeRate}, final fee: ${cancellationFeeAmount}`,
+                      meta: { exchangeRate, rawBookingCurrency, baseCurrencyCode, cancellationFeeAmount },
+                      ctx,
+                    })
+                  }
+                } catch (currencyErr) {
+                  await LoggerService.log({
+                    actorId: userId,
+                    action: 'CANCELLATION_FEE_CURRENCY_ERROR',
+                    entityType: 'Reservation',
+                    entityId: existingReservation.id,
+                    hotelId: existingReservation.hotelId,
+                    description: `Cancellation fee currency conversion failed, using raw amount: ${(currencyErr as any)?.message}`,
+                    meta: { error: (currencyErr as any)?.message, cancellationFeeAmount },
+                    ctx,
+                  })
+                }
+              }
+
+              if (cancellationFeeAmount > 0) {
+                await LoggerService.log({
+                  actorId: userId,
+                  action: 'CANCELLATION_FEE_DETECTED',
+                  entityType: 'Reservation',
+                  entityId: existingReservation.id,
+                  hotelId: existingReservation.hotelId,
+                  description: `Cancellation fee detected from Channex services: ${cancellationFeeAmount}`,
+                  meta: { cancellationFeeAmount, bookingId },
+                  ctx,
+                })
+              }
+
               // Flag for downstream cancellation processing
               existingReservation.cancellationReason = bookingData?.cancellation_reason || bookingData?.notes || ''
               const cancellationReason = bookingData?.cancellation_reason || bookingData?.notes || '';
-              await ReservationCreationService.cancelReservation(existingReservation, auth.user?.id!, cancellationReason, ctx)
+              await ReservationCreationService.cancelReservation(existingReservation, auth.user?.id!, cancellationReason, ctx, cancellationFeeAmount > 0 ? cancellationFeeAmount : undefined)
               existingReservation.cancellationDate = DateTime.now();
               await existingReservation.save()
               // Notify Front Office users and default hotel email for cancellation
@@ -1847,6 +1925,89 @@ export default class ChannexMigrationController {
                   }
 
                   await ReservationFolioService.postRoomCharges(reservation.id, userId)
+
+                  // === NO SHOW FEE: Extract from services and post to folio ===
+                  let noShowFeeAmount = 0
+                  const bookingServices = bookingData.services || []
+                  for (const svc of bookingServices) {
+                    if (svc.type === 'No Show Fee' || svc.type === 'No-Show' || svc.name === 'No Show Fee' || svc.name === 'No-Show') {
+                      noShowFeeAmount += parseFloat(svc.total_price || '0')
+                    }
+                  }
+                  // Also check room-level services
+                  if (bookingData.rooms && Array.isArray(bookingData.rooms)) {
+                    for (const room of bookingData.rooms) {
+                      const roomServices = room.services || []
+                      for (const svc of roomServices) {
+                        if (svc.type === 'No Show Fee' || svc.type === 'No-Show' || svc.name === 'No Show Fee' || svc.name === 'No-Show') {
+                          noShowFeeAmount += parseFloat(svc.total_price || '0')
+                        }
+                      }
+                    }
+                  }
+
+                  // Apply currency conversion if needed
+                  if (noShowFeeAmount > 0) {
+                    try {
+                      const CurrencyCacheService = (await import('../services/currency_cache_service.js')).default
+                      const defaultCurrencyPayload = await CurrencyCacheService.getHotelDefaultCurrency(existingReservation.hotelId)
+                      const baseCurrencyCode = (defaultCurrencyPayload?.currencyCode || '').toUpperCase()
+                      const rawBookingCurrency = (bookingData.currency || bookingData.currency_code || '').toUpperCase()
+                      const isCrossRate = !!rawBookingCurrency && rawBookingCurrency !== baseCurrencyCode
+                      if (isCrossRate) {
+                        const Currency = (await import('../models/currency.js')).default
+                        const sourceCurrency = await Currency.query()
+                          .where('hotelId', existingReservation.hotelId)
+                          .where('currencyCode', rawBookingCurrency)
+                          .select('exchangeRate')
+                          .first()
+                        noShowFeeAmount = (sourceCurrency?.exchangeRate || 1) * noShowFeeAmount
+                      }
+                    } catch {}
+                  }
+
+                  // Post NO_SHOW_FEE transaction to each open folio
+                  if (noShowFeeAmount > 0) {
+                    for (const folio of reservation.folios) {
+                      if (folio.status === 'open') {
+                        try {
+                          await FolioService.postTransaction({
+                            folioId: folio.id,
+                            transactionType: TransactionType.CHARGE,
+                            category: TransactionCategory.NO_SHOW_FEE,
+                            description: 'No Show Fee',
+                            amount: noShowFeeAmount,
+                            quantity: 1,
+                            unitPrice: noShowFeeAmount,
+                            notes: `No-show fee from OTA booking revision`,
+                            postedBy: userId,
+                            transactionDate: DateTime.now(),
+                          })
+                          await LoggerService.log({
+                            actorId: userId,
+                            action: 'NO_SHOW_FEE_POSTED',
+                            entityType: 'FolioTransaction',
+                            entityId: folio.id,
+                            hotelId: existingReservation.hotelId,
+                            description: `No-show fee of ${noShowFeeAmount} posted to folio ${folio.id} for reservation #${existingReservation.reservationNumber}`,
+                            meta: { folioId: folio.id, noShowFeeAmount, reservationId: existingReservation.id },
+                            ctx,
+                          })
+                        } catch (feeErr) {
+                          await LoggerService.log({
+                            actorId: userId,
+                            action: 'NO_SHOW_FEE_FAILED',
+                            entityType: 'FolioTransaction',
+                            entityId: folio.id,
+                            hotelId: existingReservation.hotelId,
+                            description: `Failed to post no-show fee to folio ${folio.id}: ${(feeErr as any)?.message}`,
+                            meta: { error: (feeErr as any)?.message, noShowFeeAmount },
+                            ctx,
+                          })
+                        }
+                      }
+                    }
+                  }
 
                   for (const folio of reservation.folios) {
                     await FolioService.updateFolioTotals(folio.id)
