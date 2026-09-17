@@ -609,6 +609,44 @@ export class ChannexService {
   }
 
   /**
+   * Report a booking as No-Show to Booking.com via Channex
+   * POST /properties/{property_id}/bookings/{booking_id}/no_show
+   *
+   * Only applicable for Booking.com reservations.
+   * Can be sent from midnight on check-in date, up to 48 hours later.
+   *
+   * @param propertyId - Channex property ID
+   * @param bookingId - Channex booking ID (ota_reservation_code or booking_id)
+   * @param waivedFees - Whether the property waives no-show fees (default: false)
+   */
+  async reportNoShow(propertyId: string, bookingId: string, waivedFees: boolean = false) {
+    return this.post(`/properties/${propertyId}/bookings/${bookingId}/no_show`, {
+      waived_fees: waivedFees
+    })
+  }
+
+  /**
+   * Report an invalid credit card to Booking.com via Channex
+   * POST /properties/{property_id}/bookings/{booking_id}/invalid_card
+   *
+   * Only applicable for Booking.com reservations.
+   * Can be reported immediately after booking, until midnight on check-in day.
+   */
+  async reportInvalidCard(propertyId: string, bookingId: string) {
+    return this.post(`/properties/${propertyId}/bookings/${bookingId}/invalid_card`, {})
+  }
+
+  /**
+   * Report cancel due to invalid card to Booking.com via Channex
+   * POST /properties/{property_id}/bookings/{booking_id}/cancel_due_invalid_card
+   *
+   * Only applicable for Booking.com reservations.
+   */
+  async reportCancelDueInvalidCard(propertyId: string, bookingId: string) {
+    return this.post(`/properties/${propertyId}/bookings/${bookingId}/cancel_due_invalid_card`, {})
+  }
+
+  /**
    * Get booking revisions
    * GET /properties/{property_id}/bookings/{booking_id}/revisions
    */

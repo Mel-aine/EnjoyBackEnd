@@ -9,6 +9,7 @@ import Discount from '#models/discount'
 import MealPlan from '#models/meal_plan'
 import type { HttpContext } from '@adonisjs/core/http'
 import LoggerService from '#services/logger_service'
+import Hotel from '#models/hotel'
 import { generateReservationNumber } from '../utils/generate_reservation_number.js'
 import { generateConfirmationNumber } from '../utils/generate_confirmation_number.js'
 import { DateTime } from 'luxon'
@@ -6876,6 +6877,52 @@ export default class ReservationsController extends CrudController<typeof Reserv
       await reservation.save() // update the reservation at the end
       setImmediate(async () => {
         await GuestSummaryService.recomputeFromReservation(reservation.id)
+      })
+
+      // === NO-SHOW REPORT TO CHANNEX (Booking.com only) ===
+      // Report no-show to Channex if the reservation comes from Booking.com
+      setImmediate(async () => {
+        try {
+          const isBookingCom = reservation.otaName && reservation.otaName.toLowerCase().includes('booking')
+          if (isBookingCom && reservation.channexBookingId) {
+            const hotel = await Hotel.find(reservation.hotelId)
+            if (hotel?.channexPropertyId) {
+              const { ChannexService } = await import('#services/channex_service')
+              const channexService = new ChannexService()
+              await channexService.reportNoShow(
+                hotel.channexPropertyId,
+                reservation.channexBookingId,
+                false // waived_fees: false (default - do not waive fees)
+              )
+              await LoggerService.logActivity({
+                userId: auth.user?.id,
+                action: 'CHANNEX_NO_SHOW_REPORTED',
+                resourceType: 'reservation',
+                resourceId: reservation.id,
+                description: `No-show reported to Channex/Booking.com for reservation #${reservation.reservationNumber} (booking_id: ${reservation.channexBookingId})`,
+                details: {
+                  channexPropertyId: hotel.channexPropertyId,
+                  channexBookingId: reservation.channexBookingId,
+                  waivedFees: false,
+                  otaName: reservation.otaName,
+                },
+              })
+            }
+          }
+        } catch (channexErr) {
+          console.error('Failed to report no-show to Channex:', (channexErr as any)?.message)
+          await LoggerService.logActivity({
+            userId: auth.user?.id,
+            action: 'CHANNEX_NO_SHOW_FAILED',
+            resourceType: 'reservation',
+            resourceId: reservation.id,
+            description: `Failed to report no-show to Channex for reservation #${reservation.reservationNumber}: ${(channexErr as any)?.message}`,
+            details: {
+              error: (channexErr as any)?.message,
+              channexBookingId: reservation.channexBookingId,
+            },
+          }).catch(() => {})
+        }
       })
 
       return response.ok({
