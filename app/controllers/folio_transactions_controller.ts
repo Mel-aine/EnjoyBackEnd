@@ -191,6 +191,27 @@ async store(ctx: HttpContext) {
         }
       })
 
+      // ─── LOG CREDIT LEDGER ───
+      if (folioTx) {
+        await LoggerService.log({
+          actorId: auth.user?.id || 0,
+          action: 'CREATE',
+          entityType: 'FolioTransaction',
+          entityId: (folioTx as FolioTransaction).id,
+          hotelId: folio.hotelId,
+          reservationId: payload.reservationId,
+          description: `Credit ledger transaction processed (${payload.transactionType}) for amount ${baseAmount}`,
+          meta: {
+            folioId: payload.folioId,
+            reservationId: payload.reservationId,
+            guestId,
+            transactionType: payload.transactionType,
+            amount: baseAmount,
+          },
+          ctx,
+        })
+      }
+
       await folioTx!.load('hotel')
       await folioTx!.load('folio')
 
@@ -281,6 +302,26 @@ async store(ctx: HttpContext) {
       createdBy: auth.user?.id || 0
     })
 
+    //log de la transaction
+    await LoggerService.log({
+      actorId: auth.user?.id || 0,
+      action: 'CREATE',
+      entityType: 'FolioTransaction',
+      entityId: transaction.id,
+      hotelId: transaction.hotelId,
+      reservationId : payload.reservationId,
+      description: `Created ${particular} transaction (#${transaction.transactionNumber}) for ${baseAmount} ${baseCurrencyCode}`,
+      meta: {
+        transactionNumber: transaction.transactionNumber,
+        transactionCode: transaction.transactionCode,
+        folioId: payload.folioId,
+        reservationId: payload.reservationId,
+        category,
+        amount: baseAmount,
+      },
+      ctx,
+    })
+
     await this.updateFolioTotals(payload.folioId)
 
     // ─── RECEIPT + CITY LEDGER ───────────────────────────────
@@ -299,7 +340,8 @@ async store(ctx: HttpContext) {
           },
           createdBy: auth.user?.id || 0,
           folioTransactionId: transaction.id,
-          currency: folio.currencyCode || 'XAF'
+          currency: folio.currencyCode || 'XAF',
+          reservationId : transaction.reservationId
         })
 
         try {
@@ -322,6 +364,7 @@ async store(ctx: HttpContext) {
                 action: 'CREATE',
                 entityType: 'CityLedgerChildTransaction',
                 entityId: result.child.id,
+                reservationId : payload.reservationId,
                 description: 'Created City Ledger child transaction for payment',
                 meta: {
                   parentTransactionId: transaction.id,
@@ -338,6 +381,7 @@ async store(ctx: HttpContext) {
             action: 'ERROR',
             entityType: 'CityLedgerChildTransaction',
             entityId: transaction.id,
+            reservationId : payload.reservationId,
             description: 'Failed to create City Ledger child transaction',
             meta: { error: clError.message },
             hotelId: transaction.hotelId,
@@ -350,6 +394,7 @@ async store(ctx: HttpContext) {
           action: 'ERROR',
           entityType: 'Receipt',
           entityId: transaction.id,
+          reservationId : payload.reservationId,
           description: 'Failed to create receipt for payment transaction',
           meta: { error: receiptError.message },
           hotelId: transaction.hotelId,
@@ -358,10 +403,10 @@ async store(ctx: HttpContext) {
       }
     }
 
-    
+
    // ─── WHATSAPP NOTIFICATION ───────────────────────────────
     if (payload.transactionType === TransactionType.PAYMENT && payload.paymentMethodId) {
-     
+
       runInBackground(async () => {
         try {
           const WhatsAppNotificationService = (
@@ -386,8 +431,8 @@ async store(ctx: HttpContext) {
 
           // Vérification si le WhatsApp est activé pour cette réservation ou par défaut
           const isWhatsAppEnabled = reservation ? reservation.whatsappNotificationEnable : true
-          const phone = isWhatsAppEnabled 
-            ? (reservation?.whatsappNumber || guest?.phonePrimary) 
+          const phone = isWhatsAppEnabled
+            ? (reservation?.whatsappNumber || guest?.phonePrimary)
             : null
 
           if (!phone) {
@@ -397,11 +442,11 @@ async store(ctx: HttpContext) {
             const hotelName = hotel?.hotelName || 'Notre établissement'
             const reservationNumber = reservation?.reservationNumber || 'N/A'
             const paymentMethodName = paymentMethod?.methodName || 'Paiement'
-            
+
             // Formatage des montants (Ex: "50 000 XAF")
             const currencySymbol = baseCurrencyCode || 'XAF'
             const formattedAmount = `${transaction.amount.toLocaleString()} ${currencySymbol}`
-            
+
             // Calcul du solde restant (Remaining Balance) basé sur le folio mis à jour
             const remainingBalanceValue = folio.balance ?? 0
             const formattedBalance = `${remainingBalanceValue.toLocaleString()} ${currencySymbol}`
@@ -434,8 +479,9 @@ async store(ctx: HttpContext) {
       data: transaction
     })
 
-  } catch (error) {
+  } catch (error:any) {
     console.error(' ERREUR store:', error.message)
+
     return response.badRequest({
       message: 'Failed to create folio transaction',
       error: error.message
@@ -667,8 +713,10 @@ async store(ctx: HttpContext) {
           await ReceiptService.voidReceipt({
             transactionId: transaction.id,
             voidedBy: auth.user?.id!,
-            voidReason: reason
+            voidReason: reason,
+            reservationId : transaction.reservationId
           })
+
 
           await LoggerService.log({
             actorId: auth.user?.id || 0,
@@ -682,6 +730,7 @@ async store(ctx: HttpContext) {
               voidedBy: auth.user?.id
             },
             hotelId: transaction.hotelId,
+            reservationId : transaction.reservationId,
             ctx: { request, response } as any
           })
         } catch (receiptError) {
@@ -691,6 +740,7 @@ async store(ctx: HttpContext) {
             action: 'ERROR',
             entityType: 'Receipt',
             entityId: transaction.id,
+            reservationId : transaction.reservationId,
             description: 'Failed to void receipt for payment transaction',
             meta: {
               error: receiptError.message,
@@ -731,10 +781,13 @@ async store(ctx: HttpContext) {
                 voidReason: child.voidReason
               })
 
+              console.log('Child transaction receipt voided: ', child)
+
               await LoggerService.log({
                 actorId: auth.user?.id || 0,
                 action: 'VOID',
                 entityType: 'Receipt',
+                reservationId : transaction.reservationId,
                 entityId: child.id,
                 description: 'Receipt voided for child payment transaction',
                 meta: {
@@ -751,6 +804,7 @@ async store(ctx: HttpContext) {
                 action: 'ERROR',
                 entityType: 'Receipt',
                 entityId: child.id,
+                reservationId : transaction.reservationId,
                 description: 'Failed to void receipt for child payment transaction',
                 meta: {
                   error: childReceiptError.message,
@@ -769,6 +823,7 @@ async store(ctx: HttpContext) {
             action: 'VOID',
             entityType: 'FolioTransaction',
             entityId: child.id,
+            reservationId : transaction.reservationId,
             description: 'Child transaction voided due to parent void',
             meta: {
               parentTransactionId: transaction.id,
@@ -785,6 +840,7 @@ async store(ctx: HttpContext) {
           action: 'ERROR',
           entityType: 'FolioTransaction',
           entityId: transaction.id,
+          reservationId : transaction.reservationId,
           description: 'Failed cascading void to child transactions',
           meta: {
             error: cascadeError.message,

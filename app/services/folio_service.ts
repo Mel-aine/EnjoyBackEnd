@@ -70,7 +70,8 @@ export interface TransferData {
   amount: number
   description: string
   reference?: string
-  transferredBy: number
+  transferredBy: number,
+  reservationId? : number | null
 }
 
 export interface SplitFolioData {
@@ -79,6 +80,7 @@ export interface SplitFolioData {
   transactionsToMove: number[]
   splitBy: number
   notes?: string
+  reservationId? : number | null
 }
 
 export interface CutFolioData {
@@ -89,6 +91,7 @@ export interface CutFolioData {
   extractCharges?: boolean
   notes?: string
   cutBy: number
+  reservationId? : number | null
 }
 
 export default class FolioService {
@@ -146,6 +149,7 @@ export default class FolioService {
         entityType: 'Folio',
         entityId: folio.id,
         hotelId: folio.hotelId,
+        reservationId: folio.reservationId,
         description: `Folio "${folio.folioName}" created via service`,
         changes: LoggerService.extractChanges({}, folio.toJSON())
       })
@@ -482,6 +486,7 @@ export default class FolioService {
           hotelId: folio.hotelId,
           resourceType: 'FolioTransaction',
           resourceId: transaction.id,
+          reservationId: transaction.reservationId,
           details: {
             transactionId: transaction.id,
             folioId: folio.id,
@@ -905,6 +910,7 @@ export default class FolioService {
         action: 'FOLIO_SPLIT',
         resourceType: 'Folio',
         resourceId: data.sourceFolioId,
+        reservationId: data.reservationId,
         details: {
           sourceFolioId: data.sourceFolioId,
           destinationFolioId: data.destinationFolioId,
@@ -1197,6 +1203,7 @@ export default class FolioService {
         action: 'FOLIO_CUT',
         resourceType: 'Folio',
         resourceId: data.folioId,
+        reservationId : data.reservationId,
         details: {
           originalFolioId: data.folioId,
           newFolioId: newFolio.id,
@@ -1371,6 +1378,7 @@ export default class FolioService {
         action: 'ROOM_CHARGE_ADDED',
         resourceType: 'FolioTransaction',
         resourceId: transaction.id,
+        reservationId : transaction.reservationId,
         details: {
           folioId: data.folioId,
           amount: data.amount,
@@ -1544,6 +1552,7 @@ export default class FolioService {
           action: 'ROOM_CHARGE_UPDATED',
           resourceType: 'FolioTransaction',
           resourceId: transaction.id,
+          reservationId : transaction.reservationId,
           details: {
             folioId: folio.id,
             newAmount: data.amount,
@@ -1629,6 +1638,7 @@ export default class FolioService {
         action: 'FOLIO_ADJUSTMENT_ADDED',
         resourceType: 'FolioTransaction',
         resourceId: transaction.id,
+        reservationId: transaction.reservationId,
         details: {
           folioId: data.folioId,
           type: data.type,
@@ -1725,6 +1735,7 @@ export default class FolioService {
           action: 'FOLIO_ADJUSTMENT_UPDATED',
           resourceType: 'FolioTransaction',
           resourceId: transaction.id,
+          reservationId : transaction.reservationId,
           details: {
             folioId: transaction.folioId,
             adjustmentId: transaction.id,

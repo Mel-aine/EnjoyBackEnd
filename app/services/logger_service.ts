@@ -18,6 +18,7 @@ interface LogData {
   hotelId?:number
   ipAddress?: string
   userAgent?: string
+  reservationId?: number | null
 }
 
 interface LogActivityData {
@@ -35,6 +36,7 @@ interface LogActivityData {
   entityType?: string
   entityId?: number | string
   changes?: any
+  reservationId?: number | null
   ctx?: HttpContext
 }
 
@@ -87,6 +89,7 @@ export default class LoggerService {
         action: data.action,
         entityType: data.entityType,
         entityId,
+        reservationId: data.reservationId ?? null,
         description: data.description,
         changes: data.changes ?? null,
         meta: data.meta ?? null,
@@ -121,6 +124,7 @@ export default class LoggerService {
           action: data.action,
           entityType: data.entityType,
           entityId: Number(data.entityId),
+          reservationId: data.reservationId ?? null,
           description: data.description,
           changes: data.changes ?? null,
           meta: data.meta ?? null,
@@ -156,12 +160,15 @@ export default class LoggerService {
       const ipAddress = data.ipAddress ?? data.ctx?.request?.ip() ?? null
       const userAgent = data.userAgent ?? data.ctx?.request?.header('user-agent') ?? null
 
+      const fullName = actor?.firstName && actor?.lastName ? `${actor.firstName} ${actor.lastName}` : actor?.username ?? 'System'
+
       const logData = {
         userId,
-        username: actor?.firstName || 'System',
+        username: fullName,
         action: data.action,
         entityType: resourceType,
         entityId,
+        reservationId: data.reservationId ?? null,
         description: data.description || null,
         changes: (data.details ?? data.changes) ?? null,
         hotelId: data.hotelId ?? null,
