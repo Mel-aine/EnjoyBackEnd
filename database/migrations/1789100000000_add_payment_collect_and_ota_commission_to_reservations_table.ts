@@ -7,8 +7,8 @@ export default class extends BaseSchema {
     this.schema.alterTable(this.tableName, (table) => {
       // Who should collect the payment: 'property', 'ota' or null
       table.string('payment_collect', 50).nullable()
-      // OTA commission details (JSON object) - applicable for Booking.com and Airbnb
-      table.json('ota_commission').nullable()
+      // OTA commission details (text) - applicable for Booking.com and Airbnb
+      table.text('ota_commission').nullable()
     })
   }
 

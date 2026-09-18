@@ -267,7 +267,7 @@ export default class Reservation extends BaseModel {
   declare paymentCollect: string | null
 
   @column({ columnName: 'ota_commission' })
-  declare otaCommission: object | null
+  declare otaCommission: string | null
 
   @column()
   declare checkInTime: string

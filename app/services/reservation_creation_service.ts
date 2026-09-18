@@ -141,7 +141,7 @@ interface ReservationCreationData {
   ota_name?: string
   ota_reservation_code?: string
   payment_collect?: string
-  ota_commission?: object
+  ota_commission?: string
 
   // Notes
   special_requests?: string
