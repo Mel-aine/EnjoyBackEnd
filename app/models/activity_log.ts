@@ -3,6 +3,7 @@ import { BaseModel, column, belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import Hotel from '#models/hotel'
+import Reservation from '#models/reservation'
 
 export default class ActivityLog extends BaseModel {
   public static table = 'activity_logs'
@@ -31,6 +32,9 @@ export default class ActivityLog extends BaseModel {
   @column({ columnName: 'hotel_id' })
   declare hotelId: number | null
 
+  @column({ columnName: 'reservation_id' })
+  declare reservationId: number | null
+
   @column()
   declare changes: Record<string, any> | null
 
@@ -57,6 +61,10 @@ export default class ActivityLog extends BaseModel {
     foreignKey: 'userId',
   })
   declare user: BelongsTo<typeof User>
+
+    // Relationships
+  @belongsTo(() => Reservation)
+  declare reservation: BelongsTo<typeof Reservation>
 
   @belongsTo(() => User, {
     foreignKey: 'createdBy',

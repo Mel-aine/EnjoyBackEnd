@@ -16,7 +16,7 @@ import logger from '@adonisjs/core/services/logger'
 import { ChannexService } from '../services/channex_service.js'
 import ReservationHook from '../hooks/reservation_hooks.js'
 import type { ReservationData } from '../types/reservationData.js'
-import { FolioStatus, ReservationProductStatus, ReservationStatus, TransactionStatus, WorkflowStatus } from '../enums.js'
+import { FolioStatus, ReservationProductStatus, ReservationStatus, TransactionStatus, TransactionType, TransactionCategory, WorkflowStatus } from '../enums.js'
 import Room from '../models/room.js'
 import ReservationRoomService from '#services/reservation_room_service'
 
@@ -140,6 +140,8 @@ interface ReservationCreationData {
   ota_status?: string
   ota_name?: string
   ota_reservation_code?: string
+  payment_collect?: string
+  ota_commission?: string
 
   // Notes
   special_requests?: string
@@ -499,6 +501,8 @@ export default class ReservationCreationService {
           otaStatus: data.ota_status,
           otaName: data.ota_name,
           otaReservationCode: data.ota_reservation_code,
+          paymentCollect: data.payment_collect ?? null,
+          otaCommission: data.ota_commission ?? null,
           specialRequests: data.special_requests,
           holdReleaseDate:
             data.isHold && data.holdReleaseDate ? DateTime.fromISO(data.holdReleaseDate) : null,
@@ -1038,6 +1042,8 @@ export default class ReservationCreationService {
         ota_status: bookingData.status,
         ota_name: bookingData.ota_name,
         ota_reservation_code: bookingData.ota_reservation_code,
+        payment_collect: bookingData.payment_collect ?? null,
+        ota_commission: bookingData.ota_commission ?? null,
 
 
         // ✅ CORRECTION: Données client sécurisées
@@ -1157,7 +1163,7 @@ export default class ReservationCreationService {
     }
   }
 
-  public static async cancelReservation(reservation: Reservation, userId: number,reason:string, ctx?: any) {
+  public static async cancelReservation(reservation: Reservation, userId: number,reason:string, ctx?: any, cancellationFeeAmount?: number) {
     // If OTA status indicates total cancellation, mirror controller cancelReservation
     const cancelledRooms: string[] = []
     // Cancel all reservation rooms
@@ -1193,6 +1199,46 @@ export default class ReservationCreationService {
     let transactionsCancelled = 0
     for (const folio of reservation.folios) {
       if (folio.status === FolioStatus.OPEN) {
+        // Post cancellation fee transaction BEFORE closing the folio
+        if (cancellationFeeAmount && cancellationFeeAmount > 0) {
+          try {
+            const FolioService = (await import('../services/folio_service.js')).default
+            await FolioService.postTransaction({
+              folioId: folio.id,
+              transactionType: TransactionType.CHARGE,
+              category: TransactionCategory.CANCELLATION_FEE,
+              description: 'Cancellation Fee',
+              amount: cancellationFeeAmount,
+              quantity: 1,
+              unitPrice: cancellationFeeAmount,
+              notes: `Cancellation fee charged per OTA booking revision. Reason: ${reason || 'N/A'}`,
+              postedBy: userId,
+              transactionDate: DateTime.now(),
+            })
+            await LoggerService.log({
+              actorId: userId,
+              action: 'CANCELLATION_FEE_POSTED',
+              entityType: 'FolioTransaction',
+              entityId: folio.id,
+              hotelId: reservation.hotelId,
+              description: `Cancellation fee of ${cancellationFeeAmount} posted to folio ${folio.id} for reservation #${reservation.reservationNumber}`,
+              meta: { folioId: folio.id, cancellationFeeAmount, reservationId: reservation.id },
+              ctx,
+            })
+          } catch (feeErr) {
+            await LoggerService.log({
+              actorId: userId,
+              action: 'CANCELLATION_FEE_FAILED',
+              entityType: 'FolioTransaction',
+              entityId: folio.id,
+              hotelId: reservation.hotelId,
+              description: `Failed to post cancellation fee to folio ${folio.id}: ${(feeErr as any)?.message}`,
+              meta: { error: (feeErr as any)?.message, folioId: folio.id, cancellationFeeAmount },
+              ctx,
+            })
+          }
+        }
+
         folio.status = FolioStatus.CLOSED
         folio.workflowStatus = WorkflowStatus.FINALIZED
         folio.closedDate = DateTime.now()
@@ -1202,7 +1248,7 @@ export default class ReservationCreationService {
         foliosClosed++
 
         for (const transaction of (folio as any).transactions || []) {
-          if (transaction.status !== TransactionStatus.CANCELLED) {
+          if (transaction.status !== TransactionStatus.CANCELLED && transaction.category !== TransactionCategory.CANCELLATION_FEE) {
             transaction.status = TransactionStatus.CANCELLED
             transaction.lastModifiedBy = userId!
             await transaction.save()

@@ -9,6 +9,7 @@ import Discount from '#models/discount'
 import MealPlan from '#models/meal_plan'
 import type { HttpContext } from '@adonisjs/core/http'
 import LoggerService from '#services/logger_service'
+import Hotel from '#models/hotel'
 import { generateReservationNumber } from '../utils/generate_reservation_number.js'
 import { generateConfirmationNumber } from '../utils/generate_confirmation_number.js'
 import { DateTime } from 'luxon'
@@ -282,6 +283,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         entityId: reservation.id,
         hotelId: reservation.hotelId,
         description: logDescription,
+        reservationId: reservation.id,
         meta: {
           type: checkInType,
           checkInTime: checkInDateTime.toISO(),
@@ -305,6 +307,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           entityType: 'Guest',
           entityId: reservation.guestId,
           hotelId: reservation.hotelId,
+          reservationId: reservation.id,
           description: `Guest checked in under Reservation #${reservation.reservationNumber} (${checkInType}). Rooms: ${checkedRoomNumbers}.`,
           meta: {
             reservationId: reservation.id,
@@ -743,6 +746,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         action: 'CHECK_OUT',
         entityType: 'Reservation',
         entityId: reservation.id,
+        reservationId: reservation.id,
         hotelId: reservation.hotelId,
         description: `Reservation #${reservation.reservationNumber} rooms checked out. Rooms: ${reservationRooms.join(', ')}`,
         ctx: ctx,
@@ -754,6 +758,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           action: 'CHECK_OUT',
           entityType: 'Guest',
           entityId: reservation.guestId,
+          reservationId: reservation.id,
           hotelId: reservation.hotelId,
           description: `Checked out from hotel for reservation #${reservation.reservationNumber}.`,
           meta: {
@@ -1006,6 +1011,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         action: 'UNDO_CHECK_IN',
         entityType: 'Reservation',
         entityId: reservation.id,
+        reservationId: reservation.id,
         hotelId: reservation.hotelId,
         description: `Undo check-in for rooms: ${reservationRooms.join(', ')} on reservation #${reservation.reservationNumber}`,
         ctx,
@@ -1016,6 +1022,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           actorId: auth.user.id,
           action: 'UNDO_CHECK_IN',
           entityType: 'Guest',
+          reservationId: reservation.id,
           entityId: reservation.guestId,
           hotelId: reservation.hotelId,
           description: `Undo check-in on reservation #${reservation.reservationNumber}.`,
@@ -1156,6 +1163,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         entityType: 'Reservation',
         entityId: reservation.id,
         hotelId: reservation.hotelId,
+        reservationId: reservation.id,
         description: `Undo check-out for rooms: ${reservationRooms.join(', ')} on reservation #${reservation.reservationNumber}`,
         ctx,
       })
@@ -1167,6 +1175,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           entityType: 'Guest',
           entityId: reservation.guestId,
           hotelId: reservation.hotelId,
+          reservationId: reservation.id,
           description: `Undo check-out on reservation #${reservation.reservationNumber}.`,
           meta: { reservationId: reservation.id, reservationNumber: reservation.reservationNumber, rooms: reservationRooms },
           ctx,
@@ -1436,7 +1445,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
     const canUnAssign = reservation.reservationRooms.some(
       (reservationRoom: any) => reservationRoom.roomId
     )
-
+    const isFromOta = Boolean(
+      reservation.channexBookingId || reservation.otaReservationCode || reservation.otaName
+    )
     const todayISO = DateTime.now().toISODate()
     const reservationCheckedInToday =
       reservation.checkInDate && reservation.checkInDate.toISODate && reservation.checkInDate.toISODate() === todayISO
@@ -1597,7 +1608,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     // Cancel Reservation: Available before check-in
     if (
       userPermissions.includes('cancel_reservation') &&
-      ['confirmed', 'guaranteed', 'pending'].includes(status)
+      ['confirmed', 'guaranteed', 'pending'].includes(status) && !isFromOta
 
     ) {
       actions.push({
@@ -1630,7 +1641,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     if (
       userPermissions.includes('void_reservation') &&
       ['confirmed', 'guaranteed', 'pending'].includes(status) &&
-      numRooms >= 1
+      numRooms >= 1 && !isFromOta
     ) {
       actions.push({
         action: 'void_reservation',
@@ -1953,6 +1964,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         entityType: 'Reservation',
         entityId: reservationId,
         hotelId: reservation.hotelId,
+        reservationId: reservation.id,
         description: `Stay for reservation #${reservationId} extended until ${newDepartDate}.`,
         changes: LoggerService.extractChanges(oldReservationData, reservation.serialize()),
         ctx,
@@ -1964,6 +1976,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         entityType: 'Guest',
         entityId: reservation.guestId || 0,
         hotelId: reservation.hotelId,
+        reservationId: reservation.id,
         description: `Stay for reservation #${reservationId} extended until ${newDepartDate}.`,
         changes: LoggerService.extractChanges(oldReservationData, reservation.serialize()),
         ctx,
@@ -2156,6 +2169,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             action: 'CANCEL',
             entityType: 'ReservationRoom',
             entityId: resService.id,
+            reservationId: reservation.id,
             hotelId: reservation.hotelId,
             description: `Room ${room?.roomNumber ?? '(unknown)'} from reservation #${reservation.reservationNumber} was cancelled. Reason: ${reason || 'N/A'}.`,
             meta: { reason, cancellationFee },
@@ -2209,6 +2223,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         action: 'CANCEL',
         entityType: 'Reservation',
         entityId: reservation.id,
+        reservationId: reservation.id,
         hotelId: reservation.hotelId,
         description: `Reservation #${reservation.reservationNumber} cancelled. Rooms: ${cancelledList}. Reason: ${reason || 'N/A'}. Fee applied: ${cancellationFee || 0}.`,
         meta: {
@@ -2227,6 +2242,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         entityType: 'Guest',
         entityId: reservation.guestId || 0,
         hotelId: reservation.hotelId,
+        reservationId: reservation.id,
         description: `Guest #${reservation.guestId}: Reservation #${reservation.reservationNumber} cancelled. Rooms: ${cancelledList}. Reason: ${reason || 'N/A'}. Fee: ${cancellationFee || 0}.`,
         meta: {
           reason,
@@ -3529,7 +3545,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           }
         }
 
-
+      await trx.commit()
         // Logging
         const guestCount = allGuests.length
         const guestDescription =
@@ -3541,6 +3557,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           numberOfNights === 0 ? 'day-use' : rooms.length === 0 ? 'no-room' : 'overnight'
 
         const reservationId = Number(reservation.id)
+        console.log('DEBUG reservationId for log:', reservation.id, reservationId, isNaN(reservationId))
 
         if (!isNaN(reservationId)) {
           await LoggerService.log({
@@ -3548,6 +3565,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             action: 'CREATE',
             entityType: 'Reservation',
             entityId: reservationId,
+            reservationId: reservationId,
             hotelId: reservation.hotelId,
             description: `New ${reservationTypeDescription} reservation #${reservation.reservationNumber} created for ${guestDescription} (${guestCount} guest${guestCount > 1 ? 's' : ''}) from ${arrivedDate.toISODate()} to ${departDate.toISODate()}${rooms.length === 0 ? ' (no room assigned)' : ''}.`,
             meta: {
@@ -3571,6 +3589,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             entityType: 'Guest',
             entityId: guestId,
             hotelId: reservation.hotelId,
+            reservationId: reservation.id,
             description: `Guest ${primaryGuest.firstName} ${primaryGuest.lastName} has a new ${reservationTypeDescription} reservation (#${reservation.reservationNumber}) from ${arrivedDate.toISODate()} to ${departDate.toISODate()} for ${guestCount} guest${guestCount > 1 ? 's' : ''}${rooms.length ? ` in ${rooms.length} room${rooms.length > 1 ? 's' : ''}` : ''}.`,
             meta: {
               reservationId: reservation.id,
@@ -3589,7 +3608,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           )
         }
 
-        await trx.commit()
+
 
         setImmediate(async () => {
           try {
@@ -3775,6 +3794,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
                 action: 'CREATE_FOLIOS',
                 entityType: 'Reservation',
                 entityId: reservationIdForJob,
+                reservationId: reservationIdForJob,
                 hotelId,
                 description: `${folios.length} folio${folios.length > 1 ? 's' : ''} generated with room charges for reservation #${reservationNumber}.`,
                 meta: {
@@ -3791,6 +3811,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
                   action: 'CREATE_FOLIOS',
                   entityType: 'Guest',
                   entityId: guestIdForJob,
+                  reservationId: reservationIdForJob,
                   hotelId,
                   description: `${folios.length} folio${folios.length > 1 ? 's were' : ' was'} created for reservation #${reservationNumber}.`,
                   meta: {
@@ -4150,6 +4171,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             entityType: 'Reservation',
             entityId: reservation.id,
             hotelId: reservation.hotelId,
+            reservationId: reservation.id,
             description: `Auto check-in after creation using scheduled check-in time for reservation #${reservation.reservationNumber}.`,
             ctx,
           })
@@ -4173,6 +4195,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             action: 'CREATE',
             entityType: 'Reservation',
             entityId: reservationId,
+            reservationId: reservationId,
             hotelId: reservation.hotelId,
             description: `New ${reservationTypeDescription} reservation #${reservation.reservationNumber} created for ${guestDescription} (${guestCount} guest${guestCount > 1 ? 's' : ''}) from ${arrivedDate.toISODate()} to ${departDate.toISODate()}${rooms.length === 0 ? ' (no room assigned)' : ''}.`,
             meta: {
@@ -4196,6 +4219,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             entityType: 'Guest',
             entityId: guestId,
             hotelId: reservation.hotelId,
+            reservationId: reservation.id,
             description: `Guest ${primaryGuest.firstName} ${primaryGuest.lastName} has a new ${reservationTypeDescription} reservation (#${reservation.reservationNumber}) from ${arrivedDate.toISODate()} to ${departDate.toISODate()} for ${guestCount} guest${guestCount > 1 ? 's' : ''}${rooms.length ? ` in ${rooms.length} room${rooms.length > 1 ? 's' : ''}` : ''}.`,
             meta: {
               reservationId: reservation.id,
@@ -4331,6 +4355,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             entityType: 'Reservation',
             entityId: reservationId,
             hotelId: reservation.hotelId,
+            reservationId: reservationId,
             description: `Reservation #${reservationId} confirmed. `,
             ctx,
           })
@@ -4341,6 +4366,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             entityType: 'Guest',
             entityId: reservation.guestId || 0,
             hotelId: reservation.hotelId,
+            reservationId: reservationId,
             description: `Reservation #${reservationId} confirmed.`,
             ctx,
           })
@@ -4584,6 +4610,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         entityType: 'Guest',
         entityId: reservation.guestId || 0,
         hotelId: reservation.hotelId!,
+        reservationId: reservation.id,
         description: `Payment of ${amount} ${currencyCode} added to reservation #${reservation.reservationNumber} via ${paymentMethod.methodName}.`,
         meta: {
           paymentId: transaction.id,
@@ -5077,6 +5104,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         entityId: reservation.id,
         hotelId: reservation.hotelId,
         description: logDescription,
+        reservationId: reservation.id,
         meta: {
           originalData,
           newData: {
@@ -5102,6 +5130,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           entityType: 'Guest',
           entityId: reservation.guestId,
           hotelId: reservation.hotelId,
+          reservationId: reservation.id,
           description: `Guest stay amended under Reservation #${reservation.reservationNumber}.`,
           meta: {
             reservationId: reservation.id,
@@ -5198,8 +5227,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
           ])
 
           const isWhatsAppEnabled = reservation.whatsappNotificationEnable ?? true
-          const phone = isWhatsAppEnabled 
-            ? (reservation.whatsappNumber || guest?.phonePrimary) 
+          const phone = isWhatsAppEnabled
+            ? (reservation.whatsappNumber || guest?.phonePrimary)
             : null
 
           if (!phone) {
@@ -5208,13 +5237,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
             const recipientName = `${guest?.firstName || ''} ${guest?.lastName || ''}`.trim() || 'Cher Client'
             const hotelName = hotel?.hotelName || 'Notre établissement'
             const reservationNumber = reservation.reservationNumber || 'N/A'
-            
-            const formattedCheckIn = reservation.arrivedDate 
-              ? reservation.arrivedDate.toFormat('yyyy-MM-dd') 
+
+            const formattedCheckIn = reservation.arrivedDate
+              ? reservation.arrivedDate.toFormat('yyyy-MM-dd')
               : (newArrivalDate || 'N/A')
-              
-            const formattedCheckOut = reservation.departDate 
-              ? reservation.departDate.toFormat('yyyy-MM-dd') 
+
+            const formattedCheckOut = reservation.departDate
+              ? reservation.departDate.toFormat('yyyy-MM-dd')
               : (newDepartureDate || 'N/A')
 
             const activeResRooms = await ReservationRoom.query()
@@ -5241,7 +5270,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
               reservationNumber,
               newCheckInDate: formattedCheckIn,
               newCheckOutDate: formattedCheckOut,
-              roomNumber: displayRoomNumbers || 'N/A', 
+              roomNumber: displayRoomNumbers || 'N/A',
             })
 
           }
@@ -6029,6 +6058,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // No split reservation created; nothing else to load
 
+
       //  Create audit log for room move
       const logDescription = `Room move performed by ${auth.user?.fullName || 'User ' + auth.user?.id}.
       Reservation #${reservation.reservationNumber}.
@@ -6044,6 +6074,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         entityId: reservation.id,
         hotelId: reservation.hotelId,
         description: logDescription,
+        reservationId: reservation.id,
         meta: {
           reservationId: reservation.id,
           originalRoom: auditData.originalRoom,
@@ -6064,6 +6095,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           entityType: 'Guest',
           entityId: reservation.guestId,
           hotelId: reservation.hotelId,
+          reservationId: reservation.id,
           description: `Guest moved from Room ${originalRoomInfo.roomNumber} (${originalRoomInfo.roomType})
       → ${newRoom.roomNumber} (${newRoom.roomType?.roomTypeName}) under Reservation #${reservation.reservationNumber}.`,
           meta: {
@@ -6286,11 +6318,13 @@ export default class ReservationsController extends CrudController<typeof Reserv
             type: 'reservation_swap',
             reservation1: {
               id: reservation.id,
+              hotel_id : reservation.hotelId,
               originalRoom: originalRoom1,
               newRoom: originalRoom2,
             },
             reservation2: {
               id: targetReservation.id,
+              hotel_id : targetReservation.hotelId,
               originalRoom: originalRoom2,
               newRoom: originalRoom1,
             },
@@ -6381,7 +6415,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
             action: 'ROOM_EXCHANGE_SWAP',
             entityType: 'Reservation',
             entityId: reservation1.id,
-            hotelId: reservation1.hotelId,
+            reservationId: reservation1.id,
+            hotelId: reservation1.hotel_id,
             description: `Room swapped between Reservation #${reservation1.id} and #${reservation2.id}.
       From Room ${reservation1.originalRoom.roomNumber} (${reservation1.originalRoom.roomType})
       → Room ${reservation1.newRoom.roomNumber} (${reservation1.newRoom.roomType}).`,
@@ -6403,7 +6438,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
             action: 'ROOM_EXCHANGE_SWAP',
             entityType: 'Reservation',
             entityId: reservation2.id,
-            hotelId: reservation2.hotelId,
+            hotelId: reservation2.hotel_id,
+            reservationId: reservation2.id,
             description: `Room swapped between Reservation #${reservation2.id} and #${reservation1.id}.
       From Room ${reservation2.originalRoom.roomNumber} (${reservation2.originalRoom.roomType})
       → Room ${reservation2.newRoom.roomNumber} (${reservation2.newRoom.roomType}).`,
@@ -6430,6 +6466,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
             entityType: 'Reservation',
             entityId: reservation.id,
             hotelId: reservation.hotelId,
+            reservationId: reservation.id,
             description: `Room exchanged (Upgrade/Downgrade) for Reservation #${reservation.id}.
       From Room ${originalRoom.roomNumber} (${originalRoom.roomType})
       → Room ${newRoom.roomNumber} (${newRoom.roomType}).`,
@@ -6564,6 +6601,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
           resourceType: 'reservation',
           resourceId: reservationId,
           hotelId: reservation.hotelId!,
+          reservationId: Number(reservationId),
           details: {
             originalRoomId: newRoomId,
             revertedToRoomId: originalRoomId,
@@ -6849,8 +6887,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
         {
           userId: auth.user?.id,
           action: 'MARK_NO_SHOW',
-          resourceType: 'reservation',
+          resourceType: 'Reservation',
           resourceId: reservationId,
+          reservationId: Number(reservationId),
+          hotelId: reservation.hotelId!,
           description: `Reservation #${reservation.reservationNumber} marked as No-Show for room(s): ${affectedRooms || 'N/A'}. Reason: ${reason || 'Guest did not arrive'}.`,
           details: {
             originalStatus,
@@ -6876,6 +6916,52 @@ export default class ReservationsController extends CrudController<typeof Reserv
       await reservation.save() // update the reservation at the end
       setImmediate(async () => {
         await GuestSummaryService.recomputeFromReservation(reservation.id)
+      })
+
+      // === NO-SHOW REPORT TO CHANNEX (Booking.com only) ===
+      // Report no-show to Channex if the reservation comes from Booking.com
+      setImmediate(async () => {
+        try {
+          const isBookingCom = reservation.otaName && reservation.otaName.toLowerCase().includes('booking')
+          if (isBookingCom && reservation.channexBookingId) {
+            const hotel = await Hotel.find(reservation.hotelId)
+            if (hotel?.channexPropertyId) {
+              const { ChannexService } = await import('#services/channex_service')
+              const channexService = new ChannexService()
+              await channexService.reportNoShow(
+                hotel.channexPropertyId,
+                reservation.channexBookingId,
+                false // waived_fees: false (default - do not waive fees)
+              )
+              await LoggerService.logActivity({
+                userId: auth.user?.id,
+                action: 'CHANNEX_NO_SHOW_REPORTED',
+                resourceType: 'reservation',
+                resourceId: reservation.id,
+                description: `No-show reported to Channex/Booking.com for reservation #${reservation.reservationNumber} (booking_id: ${reservation.channexBookingId})`,
+                details: {
+                  channexPropertyId: hotel.channexPropertyId,
+                  channexBookingId: reservation.channexBookingId,
+                  waivedFees: false,
+                  otaName: reservation.otaName,
+                },
+              })
+            }
+          }
+        } catch (channexErr) {
+          console.error('Failed to report no-show to Channex:', (channexErr as any)?.message)
+          await LoggerService.logActivity({
+            userId: auth.user?.id,
+            action: 'CHANNEX_NO_SHOW_FAILED',
+            resourceType: 'reservation',
+            resourceId: reservation.id,
+            description: `Failed to report no-show to Channex for reservation #${reservation.reservationNumber}: ${(channexErr as any)?.message}`,
+            details: {
+              error: (channexErr as any)?.message,
+              channexBookingId: reservation.channexBookingId,
+            },
+          }).catch(() => {})
+        }
       })
 
       return response.ok({
@@ -7100,6 +7186,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         entityType: 'Reservation',
         entityId: reservation.id,
         hotelId: reservation.hotelId,
+        reservationId: reservation.id,
         description: logDescription,
         meta: logMeta,
         ctx,
@@ -7111,6 +7198,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         entityType: 'Guest',
         entityId: reservation.guestId!,
         hotelId: reservation.hotelId,
+        reservationId: reservation.id,
         description: isPartialVoid
           ? `Guest's reservation #${reservation.reservationNumber} had ${roomsToVoid.length} room(s) voided.`
           : `Guest's reservation #${reservation.reservationNumber} was fully voided.`,
@@ -7357,6 +7445,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         entityType: 'ReservationRoom',
         entityId: reservationId,
         hotelId: reservation.hotelId,
+        reservationId: Number(reservationId),
         description: unassignedRooms.length
           ? `Unassigned Rooms [${unassignedRooms.join(', ')}] from reservation #${reservation.reservationNumber}`
           : `Room(s) unassigned from reservation #${reservation.reservationNumber}`,
@@ -7771,6 +7860,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         entityType: 'ReservationRoom',
         entityId: reservationId,
         hotelId: reservation.hotelId,
+        reservationId: Number(reservationId),
         description: `Assigned Rooms [${assignedRooms.join(', ')}] to reservation #${reservation.reservationNumber}`,
         ctx,
       })
@@ -7839,6 +7929,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         entityType: 'ReservationRoom',
         entityId: reservationId,
         hotelId: reservation.hotelId,
+        reservationId: Number(reservationId),
         description: `${stopMove ? 'Enabled' : 'Disabled'} stop move for reservation #${reservation.reservationNumber}`,
         ctx: ctx,
       })
@@ -8325,7 +8416,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
       if (payload.whatsappNumber !== undefined) {
         reservation.whatsappNumber = payload.whatsappNumber
-        
+
         if (payload.whatsappNumber && reservation.guestId) {
           const primaryGuest = await Guest.query({ client: trx })
             .where('id', reservation.guestId)
@@ -8383,6 +8474,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         entityType: 'Reservation',
         entityId: reservationId,
         hotelId: reservation.hotelId,
+        reservationId: Number(reservationId),
         description: `Updated booking details for reservation #${reservation.reservationNumber}`,
         ctx,
       })

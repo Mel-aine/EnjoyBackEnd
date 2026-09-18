@@ -263,6 +263,12 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'ota_guarantee' })
   declare otaGuarantee: object | null
 
+  @column({ columnName: 'payment_collect' })
+  declare paymentCollect: string | null
+
+  @column({ columnName: 'ota_commission' })
+  declare otaCommission: string | null
+
   @column()
   declare checkInTime: string
 
