@@ -460,7 +460,9 @@ export class HotelAnalyticsService {
         "guestId",
         "bookingSourceId",
         "businessSourceId",
-        "otaName"
+        "otaName",
+        "channexBookingId",
+        "otaReservationCode"
       ])
       .where('hotel_id', hotelId)
       .andWhereNotIn('status', ['cancelled', 'no-show', 'no_show', 'voided'])
@@ -704,6 +706,8 @@ export class HotelAnalyticsService {
                 isSplitedOrigin:reservationRoom.isSplitedOrigin,
                 isSplitedDestination:reservationRoom.isplitedDestinatination,
                 otaName:reservation.otaName,
+                channexBookingId : reservation.channexBookingId,
+                otaReservationCode : reservation.otaReservationCode,
                 has_credit_transfer: reservation.folios?.some((f: any) =>
                   f.transactions?.some((t: any) =>
                     t.transactionType === 'credit_ledger_transfer' && !t.isVoided

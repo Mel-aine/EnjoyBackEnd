@@ -15,12 +15,14 @@ export interface CreateReceiptData {
   createdBy: number
   folioTransactionId: number
   currency: string
+  reservationId?: number | null
 }
 
 export interface VoidReceiptData {
   transactionId: number
   voidedBy: number
   voidReason?: string
+  reservationId ? : number | null
 }
 
 export interface ReceiptQueryOptions {
@@ -92,6 +94,8 @@ export default class ReceiptService {
           action: 'CREATE',
           resourceType: 'Receipt',
           resourceId: receipt.id,
+          reservationId : data?.reservationId ?? null,
+          description: `Receipt #${receipt.receiptNumber} created for ${data.totalAmount} ${data.currency} (payment method ID: ${data.paymentMethodId}).`,
           details: {
             receiptNumber: receipt.receiptNumber,
             totalAmount: data.totalAmount,
@@ -104,13 +108,15 @@ export default class ReceiptService {
         }, trx)
 
         return receipt
-      } catch (error) {
+      } catch (error:any) {
         // Log failed receipt creation
         await LoggerService.logActivity({
           userId: data.createdBy,
           action: 'CREATE_FAILED',
           resourceType: 'Receipt',
           resourceId: data.folioTransactionId, // Use folio transaction ID as reference
+          reservationId : data?.reservationId ?? null,
+          description: `Failed to create receipt for folio transaction #${data.folioTransactionId} (${data.totalAmount} ${data.currency}). Reason: ${error.message}`,
           details: {
             error: error.message,
             totalAmount: data.totalAmount,
@@ -156,6 +162,8 @@ export default class ReceiptService {
           action: 'VOID',
           resourceType: 'Receipt',
           resourceId: receipt.id,
+          reservationId : data?.reservationId ?? null,
+          description: `Receipt #${receipt.receiptNumber} voided. Reason: ${data.voidReason || 'N/A'}.`,
           details: {
             receiptNumber: receipt.receiptNumber,
             reason: data.voidReason,
@@ -165,13 +173,15 @@ export default class ReceiptService {
         }, trx)
 
         return receipt
-      } catch (error) {
+      } catch (error:any) {
         // Log error operation
         await LoggerService.logActivity({
           userId: data.voidedBy,
           action: 'VOID_FAILED',
           resourceType: 'Receipt',
           resourceId: data.transactionId,
+          reservationId : data?.reservationId ?? null,
+          description: `Failed to void receipt for transaction #${data.transactionId}. Reason: ${error.message}`,
           details: {
             error: error.message,
             reason: data.voidReason

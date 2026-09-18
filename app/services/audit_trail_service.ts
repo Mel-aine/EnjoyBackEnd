@@ -32,75 +32,88 @@ export default class AuditTrailService {
     if (options.entityIds && options.entityIds.length > 0 && options.includeRelated !== false) {
       const ReservationId = options.entityIds[0]
 
-      // Construire une requête qui inclut tous les logs liés
       query = query.where((builder) => {
-        //  Logs de la réservation elle-même
-        builder
-          .where((subBuilder) => {
-            subBuilder.where('entity_type', 'Reservation')
-            subBuilder.whereIn('entity_id', options.entityIds!)
-          })
+        //  Nouveau : tout log ayant directement reservation_id renseigné
+        builder.orWhere('reservation_id', ReservationId)
 
-          //  Logs des folios liés à cette réservation
-          .orWhere((subBuilder) => {
-            subBuilder
-              .whereIn('entity_type', ['folio', 'Folio'])
-              .whereIn('entity_id', (subQuery) => {
-                subQuery
-                  .from('folios')
-                  .select('id')
-                  .where('reservation_id', ReservationId)
-              })
-          })
+        //  Ancien : logs de la réservation elle-même (fallback, sans reservation_id)
+        builder.orWhere((subBuilder) => {
+          subBuilder
+            .whereNull('reservation_id')
+            .where('entity_type', 'Reservation')
+            .whereIn('entity_id', options.entityIds!)
+        })
 
+        //  Ancien : logs des folios liés (fallback)
+        builder.orWhere((subBuilder) => {
+          subBuilder
+            .whereNull('reservation_id')
+            .whereIn('entity_type', ['folio', 'Folio'])
+            .whereIn('entity_id', (subQuery) => {
+              subQuery
+                .from('folios')
+                .select('id')
+                .where('reservation_id', ReservationId)
+            })
+        })
 
-          //  Logs des transactions liées à cette réservation
-          .orWhere((subBuilder) => {
-            subBuilder.where('entity_type', 'CityLedgerChildTransaction')
-            subBuilder.whereIn('entity_id', (subQuery) => {
+        //  Ancien : logs des transactions CityLedgerChildTransaction (fallback)
+        builder.orWhere((subBuilder) => {
+          subBuilder
+            .whereNull('reservation_id')
+            .where('entity_type', 'CityLedgerChildTransaction')
+            .whereIn('entity_id', (subQuery) => {
               subQuery
                 .from('folio_transactions')
                 .select('id')
                 .where('reservation_id', ReservationId)
             })
-          })
+        })
 
-          //  Logs des paiements liés à cette réservation
-          .orWhere((subBuilder) => {
-            subBuilder.where('entity_type', 'folio_transaction')
-            subBuilder.whereIn('entity_id', (subQuery) => {
-              subQuery.from('folios').select('id').where('reservation_id', ReservationId)
-            })
-          })
-
-          .orWhere((subBuilder) => {
-            subBuilder.where('entity_type', 'Receipt')
-            subBuilder.whereIn('entity_id', (subQuery) => {
+        //  Ancien : logs des paiements folio_transaction (fallback, CORRIGÉ)
+        builder.orWhere((subBuilder) => {
+          subBuilder
+            .whereNull('reservation_id')
+            .where('entity_type', 'folio_transaction')
+            .whereIn('entity_id', (subQuery) => {
               subQuery
                 .from('folio_transactions')
                 .select('id')
                 .where('reservation_id', ReservationId)
             })
-          })
+        })
 
-          // Logs des guests liés à cette réservation
-          .orWhere((subBuilder) => {
-            subBuilder.where('entity_type', 'Guest')
-            subBuilder.whereIn('entity_id', (subQuery) => {
+        //  Ancien : logs Receipt (fallback)
+        builder.orWhere((subBuilder) => {
+          subBuilder
+            .whereNull('reservation_id')
+            .where('entity_type', 'Receipt')
+            .whereIn('entity_id', (subQuery) => {
               subQuery
-                .from('reservation_guests')
-                .select('guest_id')
+                .from('folio_transactions')
+                .select('id')
                 .where('reservation_id', ReservationId)
             })
-          })
+        })
 
+        //  Ancien : logs des guests liés (fallback)
+        // builder.orWhere((subBuilder) => {
+        //   subBuilder
+        //     .whereNull('reservation_id')
+        //     .where('entity_type', 'Guest')
+        //     .whereIn('entity_id', (subQuery) => {
+        //       subQuery
+        //         .from('reservation_guests')
+        //         .select('guest_id')
+        //         .where('reservation_id', ReservationId)
+        //     })
+        // })
       })
     }
-    // Pour les autres cas, utiliser le filtrage normal
+
     else if (options.entityIds && options.entityIds.length > 0) {
       query = query.whereIn('entity_id', options.entityIds)
 
-      // Apply entity type filter if provided
       if (options.entityType) {
         query = query.where('entity_type', options.entityType)
       }
@@ -128,7 +141,6 @@ export default class AuditTrailService {
     // Apply relationships
     query = query.preload('user')
     query = query.preload('creator')
-    //query = query.preload('hotel')
 
     // Apply sorting
     const sortBy = options.sortBy || 'created_at'
@@ -140,7 +152,6 @@ export default class AuditTrailService {
       return await query.paginate(options.page, options.perPage)
     }
 
-    // Otherwise return all results
     return await query
   }
 
