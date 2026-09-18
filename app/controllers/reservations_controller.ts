@@ -1445,7 +1445,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
     const canUnAssign = reservation.reservationRooms.some(
       (reservationRoom: any) => reservationRoom.roomId
     )
-
+    const isFromOta = Boolean(
+      reservation.channexBookingId || reservation.otaReservationCode || reservation.otaName
+    )
     const todayISO = DateTime.now().toISODate()
     const reservationCheckedInToday =
       reservation.checkInDate && reservation.checkInDate.toISODate && reservation.checkInDate.toISODate() === todayISO
@@ -1606,7 +1608,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     // Cancel Reservation: Available before check-in
     if (
       userPermissions.includes('cancel_reservation') &&
-      ['confirmed', 'guaranteed', 'pending'].includes(status)
+      ['confirmed', 'guaranteed', 'pending'].includes(status) && !isFromOta
 
     ) {
       actions.push({
@@ -1639,7 +1641,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
     if (
       userPermissions.includes('void_reservation') &&
       ['confirmed', 'guaranteed', 'pending'].includes(status) &&
-      numRooms >= 1
+      numRooms >= 1 && !isFromOta
     ) {
       actions.push({
         action: 'void_reservation',
