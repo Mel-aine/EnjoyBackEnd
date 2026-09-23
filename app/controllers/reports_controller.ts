@@ -27,6 +27,77 @@ import { isActiveOccupancyStatus } from '#app/utils/ooccupancy_statuses'
 import BookingSource from '#models/booking_source'
 import {FolioType} from '#app/enums'
 import ExtraCharge from '#models/extra_charge'
+
+/**
+ * Helper : réplique exactement ReservationsController.calculateBalanceSummary
+ * (agrégation des transactions de folios) pour éviter un import circulaire.
+ */
+export class FoliosControllerHelper {
+  public static calculateBalanceSummary(folios: any[]) {
+    let totalCharges = 0
+    let totalPayments = 0
+    let totalAdjustments = 0
+    let totalTaxes = 0
+    let totalServiceCharges = 0
+    let totalDiscounts = 0
+    let creditLedgerTransferred = 0
+
+    folios.forEach((folio) => {
+      const activeTransactions = folio.transactions.filter(
+        (t: any) => t.status !== TransactionStatus.VOIDED && t.isVoided === false
+      )
+      if (activeTransactions) {
+        activeTransactions.forEach((transaction: any) => {
+          if (transaction.transactionType === TransactionType.CHARGE) {
+            totalCharges += parseFloat(`${transaction.totalAmount}`) || 0
+          } else if (transaction.transactionType === TransactionType.ROOM_POSTING) {
+            totalCharges += parseFloat(`${transaction.totalAmount}`) || 0
+          } else if (transaction.transactionType === TransactionType.PAYMENT) {
+            totalPayments += Math.abs(parseFloat(`${transaction.totalAmount}`) || 0)
+          } else if (transaction.transactionType === TransactionType.ADJUSTMENT) {
+            totalAdjustments += parseFloat(`${transaction.totalAmount}`) || 0
+          } else if (transaction.transactionType === TransactionType.TRANSFER) {
+            if (transaction.category === TransactionCategory.TRANSFER_IN) {
+              totalCharges += parseFloat(`${transaction.totalAmount}`) || 0
+            } else if (transaction.category === TransactionCategory.TRANSFER_OUT) {
+              totalPayments += Math.abs(parseFloat(`${transaction.totalAmount}`) || 0)
+            }
+          } else if (transaction.transactionType === TransactionType.REFUND) {
+            totalPayments -= Math.abs(parseFloat(`${transaction.totalAmount}`) || 0)
+          } else if (transaction.transactionType === TransactionType.CREDIT_LEDGER_TRANSFER) {
+            totalPayments -= Math.abs(parseFloat(`${transaction.totalAmount}`) || 0)
+            creditLedgerTransferred += parseFloat(`${transaction.totalAmount}`) || 0
+          } else if (transaction.transactionType === TransactionType.CREDIT_LEDGER_PAYMENT) {
+            totalPayments += Math.abs(parseFloat(`${transaction.totalAmount}`) || 0)
+          }
+
+          totalTaxes += parseFloat(`${transaction.taxAmount}`) || 0
+          totalServiceCharges += parseFloat(`${transaction.serviceChargeAmount}`) || 0
+          totalDiscounts += parseFloat(`${transaction.discountAmount}`) || 0
+        })
+      }
+    })
+
+    const outstandingBalance = totalCharges + totalAdjustments - totalPayments - totalDiscounts
+    const totalChargesWithDiscounts = totalCharges - totalDiscounts
+
+    return {
+      totalCharges: parseFloat(totalCharges.toFixed(2)),
+      totalPayments: parseFloat(totalPayments.toFixed(2)),
+      totalAdjustments: parseFloat(totalAdjustments.toFixed(2)),
+      totalTaxes: parseFloat(totalTaxes.toFixed(2)),
+      totalServiceCharges: parseFloat(totalServiceCharges.toFixed(2)),
+      totalDiscounts: parseFloat(totalDiscounts.toFixed(2)),
+      outstandingBalance: parseFloat(outstandingBalance.toFixed(0)),
+      totalChargesWithTaxes: parseFloat(totalChargesWithDiscounts.toFixed(2)),
+      creditLedgerTransferred: parseFloat(creditLedgerTransferred.toFixed(2)),
+      hasCreditLedgerTransfer: creditLedgerTransferred > 0,
+      balanceStatus:
+        outstandingBalance > 0 ? 'outstanding' : outstandingBalance < 0 ? 'credit' : 'settled',
+    }
+  }
+}
+
 export default class ReportsController {
   private posNightAuditCache = new Map<string, any>()
   /**
@@ -15396,6 +15467,275 @@ private async getCityLedgerDetailsData(hotelId: number, startDate: DateTime, end
     startDate,
     endDate,
   }
+}
+
+/**
+ * Generate Guest Reservations PDF
+ * Réservations d'un guest filtrées par firstName / lastName et période (défaut 1 an).
+ */
+async generateGuestReservationsPdf({ request, response, auth }: HttpContext) {
+  try {
+    const { hotelId, startDate, endDate, currency = 'XAF', guestName, status } = request.only([
+      'hotelId',
+      'startDate',
+      'endDate',
+      'currency',
+      'guestName',
+      'status',
+    ])
+
+    if (!hotelId || !startDate || !endDate) {
+      return response.badRequest({
+        success: false,
+        message: 'hotelId, startDate et endDate sont requis',
+      })
+    }
+
+    const from = DateTime.fromISO(startDate)
+    const to = DateTime.fromISO(endDate)
+    if (!from.isValid || !to.isValid) {
+      return response.badRequest({ success: false, message: 'Format de date invalide' })
+    }
+
+    const { default: Hotel } = await import('#models/hotel')
+    const hotel = await Hotel.findOrFail(hotelId)
+
+    const user = auth.user
+    const printedBy = user
+      ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'System'
+      : 'System'
+
+    const data = await this.getGuestReservationsData(Number(hotelId), from, to, {
+      guestName: guestName || undefined,
+      status: status || undefined,
+    })
+
+    const htmlContent = await this.generateGuestReservationsHtml(data)
+
+    const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
+
+    const printedOn = DateTime.now().toFormat('dd/MM/yyyy HH:mm:ss')
+    const formattedFrom = from.toFormat('dd/MM/yyyy')
+    const formattedTo = to.toFormat('dd/MM/yyyy')
+
+    const headerTemplate = `
+    <div style="font-size:10px; width:100%; padding:2px 10px; margin:0;">
+      <div style="display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #333; padding-bottom:4px; margin-bottom:2px;">
+        <div style="font-weight:bold; color:#00008B; font-size:13px;">${hotel.hotelName}</div>
+        <div style="font-size:13px; color:#8B0000; font-weight:bold;">Guest Reservations</div>
+      </div>
+      <div style="font-size:9px; margin:3px 0; padding-top:2px;">
+        <span style="margin-right:10px;">Period: ${formattedFrom} to ${formattedTo}</span>
+        <span style="margin-right:10px;">Guest: ${data.guestFilter || 'All'}</span>
+        <span>Currency: ${currency}</span>
+      </div>
+      <table style="width:100%; border-collapse:collapse; font-size:9px; margin:0; padding:0;">
+        <thead>
+          <tr style="background-color:#f5f5f5; border-top:1px solid #333; border-bottom:1px solid #333;">
+            <th style="width:11%; text-align:left; padding:2px 1px; font-weight:bold;">Res. No</th>
+            <th style="width:14%; text-align:left; padding:2px 1px; font-weight:bold;">Guest Name</th>
+            <th style="width:11%; text-align:left; padding:2px 1px; font-weight:bold;">Room Type</th>
+            <th style="width:8%; text-align:left; padding:2px 1px; font-weight:bold;">Arrival</th>
+            <th style="width:8%; text-align:left; padding:2px 1px; font-weight:bold;">Departure</th>
+            <th style="width:10%; text-align:right; padding:2px 1px; font-weight:bold;">Rate/Night</th>
+            <th style="width:10%; text-align:right; padding:2px 1px; font-weight:bold;">Total</th>
+            <th style="width:10%; text-align:right; padding:2px 1px; font-weight:bold;">Paid</th>
+            <th style="width:18%; text-align:left; padding:2px 1px 2px 14px; font-weight:bold;">Checked In/Out By</th>
+          </tr>
+        </thead>
+      </table>
+    </div>
+    `
+
+    const footerTemplate = `
+    <div style="font-size:7px; width:100%; padding:6px 15px; border-top:1px solid #ddd; color:#555; display:flex; align-items:center; justify-content:space-between;">
+      <div style="font-weight:bold;">Printed On: <span style="font-weight:normal;">${printedOn}</span></div>
+      <div style="font-weight:bold;">Printed by: <span style="font-weight:normal;">${printedBy}</span></div>
+      <div style="font-weight:bold;">Page <span class="pageNumber" style="font-weight:normal;"></span> of <span class="totalPages" style="font-weight:normal;"></span></div>
+    </div>`
+
+    const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
+      format: 'A4',
+      orientation: 'landscape',
+      margin: {
+        top: '105px',
+        right: '10px',
+        bottom: '55px',
+        left: '10px',
+      },
+      displayHeaderFooter: true,
+      headerTemplate,
+      footerTemplate,
+      printBackground: true,
+    })
+
+    const fileName = `guest-reservations-${hotel.hotelName.replace(/\s+/g, '-')}-${to.toFormat('yyyy-MM-dd')}.pdf`
+    response.header('Content-Type', 'application/pdf')
+    response.header('Content-Disposition', `attachment; filename="${fileName}"`)
+    return response.send(pdfBuffer)
+  } catch (error) {
+    logger.error('Error generating guest reservations PDF:', error)
+    return response.internalServerError({
+      success: false,
+      message: 'Failed to generate guest reservations PDF',
+      error: error.message,
+    })
+  }
+}
+
+/**
+ * Données du rapport Guest Reservations : réservations d'un guest par nom + période.
+ * Montants calculés depuis les folios (même logique que searchReservations / calculateBalanceSummary).
+ */
+private async getGuestReservationsData(
+  hotelId: number,
+  startDate: DateTime,
+  endDate: DateTime,
+  filters?: { guestName?: string; status?: string }
+) {
+  const fromStr = startDate.toFormat('yyyy-MM-dd')
+  const toStr = endDate.toFormat('yyyy-MM-dd')
+
+  const query = Reservation.query()
+    .where('hotel_id', hotelId)
+    .whereNotIn('status', ['cancelled', 'voided'])
+    .preload('guest')
+    .preload('reservationRooms', (roomsQuery: any) => {
+      roomsQuery.preload('room', (roomQuery: any) => roomQuery.preload('roomType'))
+      roomsQuery.preload('roomType')
+      roomsQuery.preload('checkedInByUser')
+      roomsQuery.preload('checkedOutByUser')
+    })
+    .preload('folios', (folioQuery: any) => {
+      folioQuery.preload('transactions', (tq: any) => {
+        tq.where('is_voided', false).whereNotIn('status', ['cancelled', 'voided'])
+      })
+    })
+    .where((periodQuery: any) => {
+      periodQuery
+        .whereBetween('arrivedDate', [fromStr, toStr])
+        .orWhereBetween('departDate', [fromStr, toStr])
+        .orWhere((spanQuery: any) => {
+          spanQuery.where('arrivedDate', '<=', fromStr).where('departDate', '>=', toStr)
+        })
+    })
+
+  if (filters?.guestName) {
+    const terms = filters.guestName.trim().split(/\s+/).filter(Boolean)
+    query.whereHas('guest', (guestQuery: any) => {
+      guestQuery.where((nameQuery: any) => {
+        for (const term of terms) {
+          nameQuery.where((sub: any) => {
+            sub.whereILike('first_name', `%${term}%`).orWhereILike('last_name', `%${term}%`)
+          })
+        }
+      })
+    })
+  }
+  if (filters?.status) {
+    query.where('status', filters.status)
+  }
+
+  const reservations = await query.orderBy('arrivedDate', 'asc').orderBy('id', 'asc')
+
+  const rows = reservations.map((reservation) => {
+    const rooms = reservation.reservationRooms || []
+
+    // Type de chambre : chercher sur TOUTES les chambres, assignées ou non
+    // (le type est choisi dès la réservation, avant l'assignation physique)
+    const roomWithType = rooms.find(
+      (rr: any) => rr.room?.roomType?.roomTypeName || rr.roomType?.roomTypeName
+    )
+    const roomTypeName =
+      roomWithType?.room?.roomType?.roomTypeName ||
+      roomWithType?.roomType?.roomTypeName ||
+      'N/A'
+
+    // Nuitée : moyenne des roomRate (le vrai champ, pas rateAmount)
+    const rates = rooms.map((rr: any) => Number(rr.roomRate || 0)).filter((r) => r > 0)
+
+    const nights =
+      reservation.numberOfNights ||
+      reservation.nights ||
+      (reservation.arrivedDate && reservation.departDate
+        ? Math.max(1, Math.round(reservation.departDate.diff(reservation.arrivedDate, 'days').days))
+        : 0)
+    const ratePerNight = rates.length > 0 ? rates.reduce((s: number, r) => s + r, 0) / rates.length : 0
+
+    // Montants réels : total TTC = charges + taxes + service - remises (la source
+    // "officielle" est mal nommée dans calculateBalanceSummary, donc on recalcule ici)
+    const balanceSummary = FoliosControllerHelper.calculateBalanceSummary(reservation.folios as any)
+    const totalAmount =
+      balanceSummary.totalCharges +
+      // balanceSummary.totalTaxes +
+      balanceSummary.totalServiceCharges -
+      balanceSummary.totalDiscounts
+    const paidAmount = balanceSummary.totalPayments
+
+
+
+    // Checked-in/out by : depuis les chambres (ReservationRoom.checkedInByUser existe
+    // bien dans le modèle ; Reservation n'a pas cette relation)
+    const checkInByRoom = rooms.find((rr: any) => rr.checkedInByUser)
+    const checkOutByRoom = rooms.find((rr: any) => rr.checkedOutByUser)
+    const checkInBy = checkInByRoom?.checkedInByUser?.fullName || null
+    const checkOutBy = checkOutByRoom?.checkedOutByUser?.fullName || null
+
+    const checkedBy =
+      checkInBy && checkOutBy
+        ? `In: ${checkInBy} / Out: ${checkOutBy}`
+        : checkInBy
+          ? `In: ${checkInBy}`
+          : checkOutBy
+            ? `Out: ${checkOutBy}`
+            : '—'
+
+    return {
+      reservationNumber: reservation.reservationNumber || `#${reservation.id}`,
+      guestName: reservation.guest?.displayName || 'N/A',
+      roomTypeName,
+      arrivalDate: reservation.arrivedDate || rooms[0]?.checkInDate || null,
+      departureDate: reservation.departDate || rooms[0]?.checkOutDate || null,
+      ratePerNight,
+      totalAmount,
+      paidAmount,
+      checkedBy,
+      status: reservation.status,
+    }
+  })
+
+  const totals = rows.reduce(
+    (acc, row) => {
+      acc.totalAmount += row.totalAmount
+      acc.paidAmount += row.paidAmount
+      return acc
+    },
+    { totalAmount: 0, paidAmount: 0 }
+  )
+
+  const guestFilter = filters?.guestName?.trim() || ''
+
+  return { rows, totals, guestFilter, startDate, endDate }
+}
+/**
+ * Rendu Edge du rapport Guest Reservations
+ */
+public async generateGuestReservationsHtml(data: any): Promise<string> {
+  const { default: edge } = await import('edge.js')
+  const path = await import('node:path')
+
+  edge.mount(path.join(process.cwd(), 'resources/views'))
+
+  const fc = (v: number | null | undefined) =>
+    Number(v ?? 0).toLocaleString('fr-FR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    })
+
+  return await edge.render('reports/guest_reservations', {
+    data,
+    helpers: { fc },
+  })
 }
 
 /**
