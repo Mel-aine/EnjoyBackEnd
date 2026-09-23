@@ -602,7 +602,7 @@ export default class FolioService {
   }
 
   // Compute tax amount for hotel based on category and base amount
-  private static async _getHotelTaxAmountForCategory(
+   static async _getHotelTaxAmountForCategory(
     hotelId: number,
     category: TransactionCategory,
     baseAmount: number

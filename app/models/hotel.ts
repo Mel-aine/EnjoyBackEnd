@@ -16,6 +16,7 @@ import Amenity from './amenity.js'
 import Subscription from '#models/subscription'
 import Invoice from '#models/invoice'
 import Module from '#models/module'
+import CancellationSetting from './cancellation_setting.js'
 
 export default class Hotel extends BaseModel {
   @column({ isPrimary: true })
@@ -607,6 +608,9 @@ export default class Hotel extends BaseModel {
       hotel.posApiKey = candidate
     }
   }
+
+  @hasMany(() => CancellationSetting)
+  declare cancellationSettings: HasMany<typeof CancellationSetting>
 
   @hasMany(() => Subscription)
   declare subscriptions: HasMany<typeof Subscription>
