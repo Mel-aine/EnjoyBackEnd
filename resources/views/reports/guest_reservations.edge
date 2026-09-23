@@ -22,20 +22,22 @@
       <tbody>
         @if(data.rows.length === 0)
           <tr>
-            <td colspan="9" class="no-data">No reservations found for this guest in the selected period</td>
+            <td colspan="{{ data.hideCheckedBy ? 8 : 9 }}" class="no-data">No reservations found for this guest in the selected period</td>
           </tr>
         @else
           @each((row, index) in data.rows)
             <tr>
-              <td style="width: 11%;">{{ row.reservationNumber }}</td>
-              <td style="width: 14%;">{{ row.guestName }}</td>
-              <td style="width: 11%;">{{ row.roomTypeName }}</td>
-              <td style="width: 8%;">{{ row.arrivalDate ? row.arrivalDate.toFormat('dd/MM/yyyy') : '—' }}</td>
-              <td style="width: 8%;">{{ row.departureDate ? row.departureDate.toFormat('dd/MM/yyyy') : '—' }}</td>
-              <td class="num" style="width: 10%;">{{ helpers.fc(row.ratePerNight) }}</td>
-              <td class="num" style="width: 10%;">{{ helpers.fc(row.totalAmount) }}</td>
-              <td class="num" style="width: 10%;">{{ helpers.fc(row.paidAmount) }}</td>
-              <td class="by" style="width: 18%;">{{ row.checkedBy }}</td>
+              <td style="width: {{ data.widths.res }}%;">{{ row.reservationNumber }}</td>
+              <td style="width: {{ data.widths.guest }}%;">{{ row.guestName }}</td>
+              <td style="width: {{ data.widths.room }}%;">{{ row.roomTypeName }}</td>
+              <td style="width: {{ data.widths.arr }}%;">{{ row.arrivalDate ? row.arrivalDate.toFormat('dd/MM/yyyy') : '—' }}</td>
+              <td style="width: {{ data.widths.dep }}%;">{{ row.departureDate ? row.departureDate.toFormat('dd/MM/yyyy') : '—' }}</td>
+
+              <td class="num" style="width: {{ data.widths.total }}%;">{{ helpers.fc(row.totalAmount) }}</td>
+              <td class="num" style="width: {{ data.widths.paid }}%;">{{ helpers.fc(row.paidAmount) }}</td>
+              @if(!data.hideCheckedBy)
+                <td class="by" style="width: {{ data.widths.by }}%;">{{ row.checkedBy }}</td>
+              @endif
             </tr>
           @endeach
         @endif

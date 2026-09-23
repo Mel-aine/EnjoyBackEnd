@@ -57,6 +57,7 @@ export class FoliosControllerHelper {
           } else if (transaction.transactionType === TransactionType.ADJUSTMENT) {
             totalAdjustments += parseFloat(`${transaction.totalAmount}`) || 0
           } else if (transaction.transactionType === TransactionType.TRANSFER) {
+            // Treat transfer-in as charge (debit), transfer-out as payment (credit)
             if (transaction.category === TransactionCategory.TRANSFER_IN) {
               totalCharges += parseFloat(`${transaction.totalAmount}`) || 0
             } else if (transaction.category === TransactionCategory.TRANSFER_OUT) {
@@ -15475,14 +15476,17 @@ private async getCityLedgerDetailsData(hotelId: number, startDate: DateTime, end
  */
 async generateGuestReservationsPdf({ request, response, auth }: HttpContext) {
   try {
-    const { hotelId, startDate, endDate, currency = 'XAF', guestName, status } = request.only([
+    const { hotelId, startDate, endDate, currency = 'XAF', guestName, status, hideCheckedBy: hideRaw } = request.only([
       'hotelId',
       'startDate',
       'endDate',
       'currency',
       'guestName',
       'status',
+      'hideCheckedBy'
     ])
+
+    const hideCheckedBy = hideRaw === true || hideRaw === 'true'
 
     if (!hotelId || !startDate || !endDate) {
       return response.badRequest({
@@ -15509,8 +15513,10 @@ async generateGuestReservationsPdf({ request, response, auth }: HttpContext) {
       guestName: guestName || undefined,
       status: status || undefined,
     })
-
-    const htmlContent = await this.generateGuestReservationsHtml(data)
+    const widths = hideCheckedBy
+      ? { res: 15, guest: 22, room: 15, arr: 10, dep: 10, total: 9, paid: 9 }
+      : { res: 11, guest: 14, room: 11, arr: 8, dep: 8, total: 10, paid: 10, by: 18 }
+    const htmlContent = await this.generateGuestReservationsHtml({ ...data, hideCheckedBy, widths })
 
     const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
 
@@ -15532,15 +15538,15 @@ async generateGuestReservationsPdf({ request, response, auth }: HttpContext) {
       <table style="width:100%; border-collapse:collapse; font-size:9px; margin:0; padding:0;">
         <thead>
           <tr style="background-color:#f5f5f5; border-top:1px solid #333; border-bottom:1px solid #333;">
-            <th style="width:11%; text-align:left; padding:2px 1px; font-weight:bold;">Res. No</th>
-            <th style="width:14%; text-align:left; padding:2px 1px; font-weight:bold;">Guest Name</th>
-            <th style="width:11%; text-align:left; padding:2px 1px; font-weight:bold;">Room Type</th>
-            <th style="width:8%; text-align:left; padding:2px 1px; font-weight:bold;">Arrival</th>
-            <th style="width:8%; text-align:left; padding:2px 1px; font-weight:bold;">Departure</th>
-            <th style="width:10%; text-align:right; padding:2px 1px; font-weight:bold;">Rate/Night</th>
-            <th style="width:10%; text-align:right; padding:2px 1px; font-weight:bold;">Total</th>
-            <th style="width:10%; text-align:right; padding:2px 1px; font-weight:bold;">Paid</th>
-            <th style="width:18%; text-align:left; padding:2px 1px 2px 14px; font-weight:bold;">Checked In/Out By</th>
+            <th style="width:${widths.res}%; text-align:left; padding:2px 1px; font-weight:bold;">Res. No</th>
+            <th style="width:${widths.guest}%; text-align:left; padding:2px 1px; font-weight:bold;">Guest Name</th>
+            <th style="width:${widths.room}%; text-align:left; padding:2px 1px; font-weight:bold;">Room Type</th>
+            <th style="width:${widths.arr}%; text-align:left; padding:2px 1px; font-weight:bold;">Arrival</th>
+            <th style="width:${widths.dep}%; text-align:left; padding:2px 1px; font-weight:bold;">Departure</th>
+
+            <th style="width:${widths.total}%; text-align:right; padding:2px 1px; font-weight:bold;">Total</th>
+            <th style="width:${widths.paid}%; text-align:right; padding:2px 1px; font-weight:bold;">Paid</th>
+            ${hideCheckedBy ? '' : `<th style="width:${widths.by}%; text-align:left; padding:2px 1px 2px 14px; font-weight:bold;">Checked In/Out By</th>`}
           </tr>
         </thead>
       </table>
@@ -15636,7 +15642,11 @@ private async getGuestReservationsData(
     query.where('status', filters.status)
   }
 
-  const reservations = await query.orderBy('arrivedDate', 'asc').orderBy('id', 'asc')
+  const reservations = await query.preload('folios', (folioQuery) => {
+            folioQuery.preload('transactions', (tq) => {
+              tq.where('isVoided', false).whereNot('status', TransactionStatus.VOIDED).whereNull('mealPlanId')
+            })
+          }).orderBy('arrivedDate', 'asc').orderBy('id', 'asc')
 
   const rows = reservations.map((reservation) => {
     const rooms = reservation.reservationRooms || []
@@ -15662,17 +15672,13 @@ private async getGuestReservationsData(
         : 0)
     const ratePerNight = rates.length > 0 ? rates.reduce((s: number, r) => s + r, 0) / rates.length : 0
 
-    // Montants réels : total TTC = charges + taxes + service - remises (la source
-    // "officielle" est mal nommée dans calculateBalanceSummary, donc on recalcule ici)
+
     const balanceSummary = FoliosControllerHelper.calculateBalanceSummary(reservation.folios as any)
     const totalAmount =
-      balanceSummary.totalCharges +
-      // balanceSummary.totalTaxes +
-      balanceSummary.totalServiceCharges -
-      balanceSummary.totalDiscounts
+      balanceSummary.totalChargesWithTaxes
     const paidAmount = balanceSummary.totalPayments
 
-
+        console.log('balanceSummary',balanceSummary)
 
     // Checked-in/out by : depuis les chambres (ReservationRoom.checkedInByUser existe
     // bien dans le modèle ; Reservation n'a pas cette relation)
