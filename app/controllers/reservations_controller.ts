@@ -2033,7 +2033,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
    */
   public async getGuestCancellationDebts({ params, response }: HttpContext) {
     try {
-      const guestId = Number(params.guestId)
+      const guestId = Number(params.id)
+
       if (!Number.isFinite(guestId)) {
         return response.badRequest({ message: 'Invalid guest id' })
       }
@@ -4692,6 +4693,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       await trx.commit()
+      // Recalcul de la dette d'annulation du client (le paiement peut solder une pénalité)
+      const CancellationService = (await import('#services/cancellation_service')).default
+      CancellationService.queueGuestDebtRecomputeForFolio(folio.id)
+
       //log for guest
       await LoggerService.log({
         actorId: auth.user?.id!,

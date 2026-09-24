@@ -32,6 +32,10 @@ export default class Guest extends BaseModel {
   @column()
   declare outstandingCredit: number | null 
 
+  /** Dette du client envers l'hôtel (pénalités d'annulation tardive non réglées) */
+  @column()
+  declare outstandingCancellationDebt: number
+
   @column()
   declare phoneWhatsapp: string | null
 

@@ -1228,6 +1228,10 @@ const applicableBase = parseFloat(`${folio.balance}`) + ancienDiscountAmount
         settledBy: auth.user!.id
       })
 
+      // Recalcul de la dette d'annulation du client (le paiement peut solder une pénalité)
+      const CancellationService = (await import('#services/cancellation_service')).default
+      CancellationService.queueGuestDebtRecomputeForFolio(result.folio.id)
+
       await LoggerService.log({
         actorId: auth.user?.id || 0,
         action: 'SETTLE_FOLIO',

@@ -8,6 +8,7 @@ import Folio from '#models/folio'
 import LoggerService from '#services/logger_service'
 import GuestSummaryService from '#services/guest_summary_service'
 import FolioService from '#services/folio_service'
+
 import {
   FolioStatus,
   ReservationStatus,
@@ -332,7 +333,7 @@ export default class CancellationService {
     // Exonération (dérogation manager)
     const feeWaived = Boolean(waiveFee)
     if (feeWaived && !waiveReason?.trim()) {
-      throw new Error('Un motif d\'exonération est obligatoire pour waiver les frais d\'annulation.')
+      throw new Error('A valid reason for exemption is required to waive the cancellation fees.')
     }
 
     let feeAmount = overrideFeeAmount !== undefined ? round2(overrideFeeAmount) : evaluation.feeAmount
@@ -428,8 +429,8 @@ export default class CancellationService {
           unitPrice: feeAmount,
           taxAmount: 0,
           notes: feeWaived
-            ? `Frais exonérés (dérogation manager). Motif: ${waiveReason}`
-            : `Politique d'annulation: franchise ${evaluation.policy.freeHours}h, ${evaluation.policy.chargeType}${isFullCancellation ? '' : ' (partial)'}. Reason: ${reason || 'N/A'}`,
+            ? `Waived fees (manager override). Reason: ${waiveReason}`
+            : `Cancellation policy: deductible ${evaluation.policy.freeHours}h, ${evaluation.policy.chargeType}${isFullCancellation ? '' : ' (partial)'}. Reason: ${reason || 'N/A'}`,
           postedBy: userId,
           transactionDate: DateTime.now(),
         })
@@ -460,10 +461,7 @@ export default class CancellationService {
         })
       }
 
-      // Annuler (VOID) les charges des chambres concernées, SANS toucher aux
-      // paiements/acomptes déjà encaissés ni à la ligne de frais d'annulation.
-      // En annulation PARTIELLE, on ne touche qu'aux charges des chambres annulées ;
-      // les charges des chambres restantes (encore actives) doivent rester intactes.
+
       for (const transaction of folio.transactions ?? []) {
         const isPayment = transaction.transactionType === TransactionType.PAYMENT
         const isCancellationFee = transaction.category === TransactionCategory.CANCELLATION_FEE
@@ -501,9 +499,9 @@ export default class CancellationService {
         freshFolio.closedBy = userId
         freshFolio.settlementStatus =
           balance > 0 ? SettlementStatus.PENDING : SettlementStatus.SETTLED
-        if (balance < 0) {
-          freshFolio.refundAmount = round2(Math.abs(balance))
-        }
+        // if (balance < 0) {
+        //   freshFolio.refundAmount = round2(Math.abs(balance))
+        // }
         foliosClosed++
       }
       freshFolio.lastModifiedBy = userId
@@ -521,8 +519,6 @@ export default class CancellationService {
       })
     }
 
-    // 3. Mise à jour de la réservation — CANCELLED uniquement si TOUTES les
-    // chambres actives sont annulées ; sinon la réservation reste active.
     const now = DateTime.now()
     if (isFullCancellation) {
       reservation.merge({
@@ -543,7 +539,7 @@ export default class CancellationService {
 
     const cancelledList = cancelledRooms.length > 0 ? `[${cancelledRooms.join(', ')}]` : '(none)'
 
-    // 4. Log d'audit global
+    //  Log d'audit global
     await LoggerService.log({
       actorId: userId,
       action: isFullCancellation ? 'CANCEL' : 'PARTIAL_CANCEL',
@@ -568,8 +564,10 @@ export default class CancellationService {
       ctx,
     })
 
-    // 5. Créance client : alerter dans les logs (indicateur "dette / pénalité non réglée")
+    // Créance client : incrémenter la dette stockée sur le profil client + alerter dans les logs
     if (isLate && !feeWaived && remainingDue > 0 && reservation.guestId) {
+      const debt = await this.recomputeGuestDebt(reservation.guestId)
+
       await LoggerService.log({
         actorId: userId,
         action: 'GUEST_CANCELLATION_DEBT',
@@ -577,8 +575,8 @@ export default class CancellationService {
         entityId: reservation.guestId,
         reservationId: reservation.id,
         hotelId: reservation.hotelId,
-        description: `Guest #${reservation.guestId}: unpaid cancellation penalty of ${remainingDue} on reservation #${reservation.reservationNumber}`,
-        meta: { remainingDue, feeAmount, paidAmount, reservationId: reservation.id },
+        description: `Guest #${reservation.guestId}: unpaid cancellation penalty of ${remainingDue} on reservation #${reservation.reservationNumber}. Total outstanding debt: ${debt}`,
+        meta: { remainingDue, feeAmount, paidAmount, reservationId: reservation.id, totalOutstandingDebt: debt },
         ctx,
       })
     }
@@ -594,16 +592,16 @@ export default class CancellationService {
 
     const partialLabel = isFullCancellation ? '' : 'partielle '
     const summaryMessage = feeWaived
-      ? `Annulation ${partialLabel}tardive exonérée — aucun frais imputé (dérogation manager).`
+      ? `Late cancellation ${partialLabel}waived — no fee charged (manager override).`
       : !isLate
         ? isFullCancellation
-          ? 'Annulation dans les délais — aucun frais, Folio soldé.'
-          : 'Chambre(s) annulée(s) dans les délais — aucun frais.'
+          ? 'Timely cancellation — no charge, folio settled.'
+          : 'Room(s) cancelled within the deadline — no charge.'
         : remainingDue > 0
-          ? `Annulation ${partialLabel}tardive — frais de ${feeAmount} imputés, reste à payer : ${remainingDue}.`
+          ? `Late cancellation ${partialLabel} — ${feeAmount} fee charged, balance due: ${remainingDue}.`
           : refundDue > 0
-            ? `Annulation ${partialLabel}tardive — frais de ${feeAmount} imputés, à rembourser : ${refundDue}.`
-            : `Annulation ${partialLabel}tardive — frais de ${feeAmount} imputés et couverts par l'acompte.`
+            ? `Late ${partialLabel} cancellation — ${feeAmount} fee charged; refund due: ${refundDue}.`
+            : `Late cancellation ${partialLabel} — fee of ${feeAmount} charged and covered by the deposit.`
 
     return {
       reservationId: reservation.id,
@@ -627,57 +625,112 @@ export default class CancellationService {
   }
 
   /**
+   * Recalcule la dette totale du client (pénalités d'annulation tardive non réglées)
+   * à partir des réservations annulées, puis la persiste sur `guests.outstanding_cancellation_debt`.
+   * Cette dette est l'équivalent "négatif" du credit ledger : c'est ce que le client
+   * doit à l'hôtel. Elle est décrémentée automatiquement lorsqu'il paie.
+   */
+static async recomputeGuestDebt(guestId: number): Promise<number> {
+  const result = await this.getGuestOutstandingDebts(guestId)
+  const total = round2(result.totalOutstanding)
+
+  const guest = await (await import('#models/guest')).default.find(guestId)
+
+  if (guest && Number(guest.outstandingCancellationDebt || 0) !== total) {
+    guest.outstandingCancellationDebt = total
+    await guest.save()
+    console.log('[DEBT] save() exécuté, valeur après save =', guest.outstandingCancellationDebt)
+  } else {
+    console.log('[DEBT] aucune écriture (valeur identique ou guest introuvable)')
+  }
+
+  return total
+}
+
+  /**
+   * Recalcule la dette du client si le folio donné contient des frais d'annulation
+   * (appelé après tout mouvement de paiement pouvant impacter la dette).
+   * Léger : une seule requête filtrée sur category = CANCELLATION_FEE avant le recompute.
+   */
+  static async recomputeGuestDebtForFolio(folioId: number): Promise<void> {
+    const Folio = (await import('#models/folio')).default
+    const folio = await Folio.find(folioId)
+    if (!folio?.guestId) return
+
+    const hasCancellationFee = await (folio as any)
+      .related('transactions')
+      .query()
+      .where('category', TransactionCategory.CANCELLATION_FEE)
+      .limit(1)
+      .first()
+    if (!hasCancellationFee) return
+
+    await this.recomputeGuestDebt(folio.guestId)
+  }
+
+  /**
+   * Version en arrière-plan de recomputeGuestDebtForFolio (ne bloque pas la requête HTTP).
+   */
+  static queueGuestDebtRecomputeForFolio(folioId: number): void {
+    setImmediate(() => {
+      this.recomputeGuestDebtForFolio(folioId).catch((error) => {
+        console.error('Guest cancellation debt recompute failed:', error)
+      })
+    })
+  }
+
+  /**
    * Indicateur "dette / pénalité d'annulation non réglée" d'un client :
    * liste des annulations tardives non exonérées avec reste à payer > 0.
    */
   static async getGuestOutstandingDebts(guestId: number) {
-    const cancelledReservations = await Reservation.query()
-      .where('guestId', guestId)
-      .where('status', ReservationStatus.CANCELLED)
-      .where('cancellationType', 'late')
-      .where('cancellationFeeWaived', false)
-      .whereNotNull('cancellationFeeAmount')
-      .where('cancellationFeeAmount', '>', 0)
-      .orderBy('cancellationDate', 'desc')
+  const cancelledReservations = await Reservation.query()
+    .where('guestId', guestId)
+    .where('status', ReservationStatus.CANCELLED)
+    .where('cancellationType', 'late')
+    .where('cancellationFeeWaived', false)
+    .whereNotNull('cancellationFeeAmount')
+    .where('cancellationFeeAmount', '>', 0)
+    .preload('folios')
+    .orderBy('cancellationDate', 'desc')
 
-    const debts: Array<{
-      reservationId: number
-      reservationNumber: string | null
-      cancellationDate: DateTime | null
-      feeAmount: number
-      remainingDue: number
-    }> = []
+  const debts: Array<{
+    reservationId: number
+    reservationNumber: string | null
+    cancellationDate: DateTime | null
+    feeAmount: number
+    remainingDue: number
+  }> = []
 
-    for (const reservation of cancelledReservations) {
-      const folios = await Folio.query().where('reservationId', reservation.id)
-      let paid = 0
-      for (const folio of folios) {
-        const payments = await (folio as any)
-          .related('transactions')
-          .query()
-          .where('transactionType', TransactionType.PAYMENT)
-          .whereNotIn('status', [TransactionStatus.CANCELLED, TransactionStatus.VOIDED])
-        for (const payment of payments) {
-          paid += Math.abs(Number(payment.total_amount ?? payment.amount) || 0)
-        }
-      }
-      const fee = Number(reservation.cancellationFeeAmount) || 0
-      const remainingDue = round2(Math.max(0, fee - paid))
-      if (remainingDue > 0) {
-        debts.push({
-          reservationId: reservation.id,
-          reservationNumber: reservation.reservationNumber,
-          cancellationDate: reservation.cancellationDate ?? null,
-          feeAmount: fee,
-          remainingDue,
-        })
-      }
-    }
 
-    return {
-      hasOutstandingDebt: debts.length > 0,
-      totalOutstanding: round2(debts.reduce((sum, d) => sum + d.remainingDue, 0)),
-      debts,
-    }
+
+for (const reservation of cancelledReservations) {
+  const folioBalances = (reservation.folios ?? []).map((f) => ({
+    folioId: f.id,
+    status: f.status,
+    balance: Number(f.balance) || 0,
+  }))
+  const balance = round2(folioBalances.reduce((sum, f) => sum + f.balance, 0))
+  const remainingDue = Math.max(0, balance)
+
+
+
+  if (remainingDue > 0) {
+    debts.push({
+      reservationId: reservation.id,
+      reservationNumber: reservation.reservationNumber,
+      cancellationDate: reservation.cancellationDate ?? null,
+      feeAmount: Number(reservation.cancellationFeeAmount) || 0,
+      remainingDue,
+    })
   }
+}
+
+
+  return {
+    hasOutstandingDebt: debts.length > 0,
+    totalOutstanding: round2(debts.reduce((sum, d) => sum + d.remainingDue, 0)),
+    debts,
+  }
+}
 }
