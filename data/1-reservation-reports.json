@@ -191,6 +191,10 @@
       {
         "id": "city_ledger_detail",
         "name": "City Ledger Details"
+      },
+      {
+        "id" : "guest_reservations",
+        "name" : "Guest Reservations"
       }
     ]
   },
