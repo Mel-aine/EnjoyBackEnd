@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Guest Reservations</title>
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 10px; margin: 0; padding: 0; color: #333; }
+      table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
+      tr { page-break-inside: avoid; }
+      th, td { text-align: left; padding: 3px 1px; font-size: 10px; border-bottom: 1px dotted #ccc; }
+      td.center { text-align: center; }
+      td.num, th.num { text-align: right; }
+      tfoot td { font-weight: bold; border-top: 1.5px solid #555; border-bottom: none; background: #EFEFEF; }
+      .no-data { text-align: center; padding: 20px 0; color: #888; font-style: italic; }
+      tfoot { display: table-row-group; }
+      tfoot tr { page-break-inside: avoid; }
+      td.by { padding-left: 14px; }
+    </style>
+  </head>
+  <body>
+    <table>
+      <tbody>
+        @if(data.rows.length === 0)
+          <tr>
+            <td colspan="{{ data.hideCheckedBy ? 8 : 9 }}" class="no-data">No reservations found for this guest in the selected period</td>
+          </tr>
+        @else
+          @each((row, index) in data.rows)
+            <tr>
+              <td style="width: {{ data.widths.res }}%;">{{ row.reservationNumber }}</td>
+              <td style="width: {{ data.widths.guest }}%;">{{ row.guestName }}</td>
+              <td style="width: {{ data.widths.room }}%;">{{ row.roomTypeName }}</td>
+              <td style="width: {{ data.widths.arr }}%;">{{ row.arrivalDate ? row.arrivalDate.toFormat('dd/MM/yyyy') : '—' }}</td>
+              <td style="width: {{ data.widths.dep }}%;">{{ row.departureDate ? row.departureDate.toFormat('dd/MM/yyyy') : '—' }}</td>
+
+              <td class="num" style="width: {{ data.widths.total }}%;">{{ helpers.fc(row.totalAmount) }}</td>
+              <td class="num" style="width: {{ data.widths.paid }}%;">{{ helpers.fc(row.paidAmount) }}</td>
+              @if(!data.hideCheckedBy)
+                <td class="by" style="width: {{ data.widths.by }}%;">{{ row.checkedBy }}</td>
+              @endif
+            </tr>
+          @endeach
+        @endif
+      </tbody>
+
+    </table>
+  </body>
+</html>

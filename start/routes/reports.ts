@@ -313,6 +313,7 @@ router.group(() => {
     router.get('/services-report-by-period-pdf', [ReportsController, 'generateServicesReportByPeriodPdf'])
     router.post('/city-ledger-list-pdf', [ReportsController, 'generateCityLedgerListPdf'])
     router.post('/city-ledger-details-pdf', [ReportsController, 'generateCityLedgerDetailsPdf'])
+    router.post('/guest-reservations-pdf', [ReportsController, 'generateGuestReservationsPdf'])
   })
 
 }).prefix('/api/reports').use([
