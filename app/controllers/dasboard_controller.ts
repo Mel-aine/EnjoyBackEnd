@@ -987,9 +987,26 @@ export default class DashboardController {
     const query = Folio.query(trx ? { client: trx } : undefined)
       .where('hotel_id', serviceId)
       .where('balance', '>', 0)
-      .where('status', 'open')
+      .where((folioStatusQuery) => {
+        folioStatusQuery
+          // Folios ouverts avec solde impayé
+          .where('status', 'open')
+          // Folios clôturés avec solde impayé : réservations annulées avec frais d'annulation à payer
+          .orWhere((closedWithBalanceQuery) => {
+            closedWithBalanceQuery
+              .where('status', 'closed')
+              .whereHas('reservation', (reservationQuery) => {
+                reservationQuery.where('status', ReservationStatus.CANCELLED)
+              })
+          })
+      })
       .whereHas('reservation', (reservationQuery) => {
-        reservationQuery.whereIn('status', [ReservationStatus.CHECKED_OUT])
+        reservationQuery.whereIn('status', [
+          ReservationStatus.CHECKED_OUT,
+          ReservationStatus.CHECKED_IN,
+          ReservationStatus.NOSHOW,
+          ReservationStatus.CANCELLED
+        ])
 
         if (startDate) reservationQuery.where('arrival_date', '>=', startDate)
         if (endDate) reservationQuery.where('departure_date', '<=', endDate)

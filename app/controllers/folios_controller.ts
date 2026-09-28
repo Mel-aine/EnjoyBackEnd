@@ -911,7 +911,19 @@ const applicableBase = parseFloat(`${folio.balance}`) + ancienDiscountAmount
 
       const query = Folio.query()
         .where('balance', '>', 0)
-        .where('status', 'open')
+        .where((folioStatusQuery) => {
+          folioStatusQuery
+            // Folios ouverts avec solde impayé
+            .where('status', 'open')
+            // Folios clôturés avec solde impayé : réservations annulées avec frais d'annulation à payer
+            .orWhere((closedWithBalanceQuery) => {
+              closedWithBalanceQuery
+                .where('status', 'closed')
+                .whereHas('reservation', (reservationQuery) => {
+                  reservationQuery.where('status', ReservationStatus.CANCELLED)
+                })
+            })
+        })
 
       if (hotelId) {
         query.where('hotel_id', hotelId)
@@ -946,8 +958,14 @@ const applicableBase = parseFloat(`${folio.balance}`) + ancienDiscountAmount
       }
 
       // Exclude reservations that are confirmed or pending
+      // (inclus les checked-out, no-show et cancelled avec folio à régler)
       query.whereHas('reservation', (reservationQuery) => {
-        reservationQuery.whereIn('status', [ReservationStatus.CHECKED_IN])
+        reservationQuery.whereIn('status', [
+          ReservationStatus.CHECKED_IN,
+          ReservationStatus.CHECKED_OUT,
+          ReservationStatus.NOSHOW,
+          ReservationStatus.CANCELLED
+        ])
       })
 
       // Filter by date range (arrival/departure dates)
