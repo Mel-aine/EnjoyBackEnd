@@ -34,6 +34,7 @@ import ReservationService from '#services/reservation_service'
 import type { ReservationData } from '../types/reservationData.js'
 import ReservationFolioService from '#services/reservation_folio_service'
 import FolioService from '#services/folio_service'
+import ReservationPenaltyService from '#services/reservation_penalty_service'
 import Folio from '#models/folio'
 import FolioTransaction from '#models/folio_transaction'
 import PaymentMethod from '#models/payment_method'
@@ -2188,8 +2189,31 @@ export default class ReservationsController extends CrudController<typeof Reserv
       let foliosClosed = 0
       let transactionsCancelled = 0
 
+      const penaltyFolio = reservation.folios.find((folio) =>
+        folio.status === FolioStatus.OPEN &&
+        (allRoomsCancelled || selectedRooms.includes(folio.reservationRoomId))
+      )
+      if (Number(cancellationFee) > 0) {
+        if (!penaltyFolio) throw new Error('No open folio available to post the cancellation fee')
+        await FolioService.postTransaction({
+          folioId: penaltyFolio.id,
+          transactionType: TransactionType.CHARGE,
+          category: TransactionCategory.CANCELLATION_FEE,
+          description: `Cancellation fee - ${reason || 'Reservation cancelled'}`,
+          amount: Number(cancellationFee),
+          quantity: 1,
+          unitPrice: Number(cancellationFee),
+          postedBy: auth.user!.id,
+        }, trx)
+      }
+
       if (reservation.folios && reservation.folios.length > 0) {
         for (const folio of reservation.folios) {
+          if (!allRoomsCancelled && !selectedRooms.includes(folio.reservationRoomId)) continue
+          transactionsCancelled += await ReservationPenaltyService.voidCharges(
+            folio.id, TransactionCategory.CANCELLATION_FEE, auth.user!.id,
+            reason || 'Reservation cancelled', trx
+          )
           // Only close open folios
           if (folio.status === FolioStatus.OPEN) {
             folio.status = FolioStatus.CLOSED
@@ -2201,17 +2225,6 @@ export default class ReservationsController extends CrudController<typeof Reserv
             await folio.save()
             foliosClosed++
 
-            // Mark all related transactions as cancelled
-            if (folio.transactions && folio.transactions.length > 0) {
-              for (const transaction of folio.transactions) {
-                if (transaction.status != TransactionStatus.CANCELLED) {
-                  transaction.status = TransactionStatus.CANCELLED
-                  transaction.lastModifiedBy = auth.user!.id
-                  await transaction.save()
-                  transactionsCancelled++
-                }
-              }
-            }
           }
         }
       }
@@ -6843,19 +6856,17 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // --- Folio fees et voids ---
       const folios = await Folio.query({ client: trx })
         .where('reservationId', reservationId)
-        .whereIn('reservationRoomId', selectedRooms)
+        .where((query) => {
+          if (!allRoomsNoShow) query.whereIn('reservationRoomId', selectedRooms)
+        })
         .where('status', '!=', 'voided')
 
       if (folios && folios.length > 0) {
-        // 1. Récupérer les IDs des folios concernés
-        const folioIds = folios.map(f => f.id)
-
-        if (folioIds.length > 0) {
-          // On cible ici les transactions de type PAYMENT comme dans votre preload
-          await FolioTransaction.query({ client: trx })
-            .whereIn('folio_id', folioIds)
-            .whereNot('transaction_type', TransactionType.PAYMENT)
-            .update({ status: TransactionStatus.VOIDED })
+        for (const folio of folios) {
+          await ReservationPenaltyService.voidCharges(
+            folio.id, TransactionCategory.NO_SHOW_FEE, auth.user!.id,
+            reason || 'Guest did not arrive', trx
+          )
         }
 
         if (noShowFees > 0) {
