@@ -14,7 +14,8 @@ import logger from '@adonisjs/core/services/logger'
 import ReservationCreationService from '../services/reservation_creation_service.js'
 import env from '#start/env'
 import { DateTime } from 'luxon'
-import { TransactionCategory, TransactionType } from '#app/enums'
+import { ReservationStatus, TransactionCategory, TransactionType } from '#app/enums'
+import ReservationPenaltyService from '#services/reservation_penalty_service'
 
 /**
  * Controller for migrating hotel data to Channex.io system
@@ -1501,11 +1502,14 @@ export default class ChannexMigrationController {
       const uniqueIds: string[] = ourBookings
         .map((b: any) => b?.attributes?.unique_id)
         .filter((v: any) => !!v)
+      const channexIds = ourBookings.flatMap((booking: any) =>
+        [booking.attributes?.booking_id, booking.id].filter(Boolean)
+      )
 
       const existingReservations = await Reservation.query()
         .where('hotel_id', hotelId)
-        .whereIn('reservation_number', uniqueIds)
-        //.whereIn('channex_booking_id', channexIds)
+        .where((query) => query.whereIn('reservation_number', uniqueIds)
+          .orWhereIn('channex_booking_id', channexIds))
         .preload('reservationRooms')
         .preload('folios', (q) => q.preload('transactions'))
 
@@ -1549,10 +1553,12 @@ export default class ChannexMigrationController {
       for (const booking of ourBookings) {
         try {
           const bookingData = booking.attributes
-          const bookingId = booking.id
+          const revisionId = booking.id
+          const bookingId = bookingData.booking_id || booking.id
 
           // Vérifier si la réservation existe déjà via les maps préchargées
-          const existingReservation = existingByUniqueId.get(bookingData.unique_id) || existingByChannexId.get(bookingId)
+          const existingReservation = existingByUniqueId.get(bookingData.unique_id) ||
+            existingByChannexId.get(bookingId) || existingByChannexId.get(revisionId)
 
           if (existingReservation) {
             // ============================================
@@ -1567,7 +1573,10 @@ export default class ChannexMigrationController {
             const statusMapping: any = {
               'new': 'confirmed',
               'modified': 'confirmed',
-              'cancelled': 'cancelled'
+              'cancelled': 'cancelled',
+              'no_show': 'no_show',
+              'no-show': 'no_show',
+              'noshow': 'no_show'
             }
             const reservationStatus = statusMapping[bookingData.status]
 
@@ -1668,13 +1677,22 @@ export default class ChannexMigrationController {
               // Flag for downstream cancellation processing
               existingReservation.cancellationReason = bookingData?.cancellation_reason || bookingData?.notes || ''
               const cancellationReason = bookingData?.cancellation_reason || bookingData?.notes || '';
-              await ReservationCreationService.cancelReservation(existingReservation, auth.user?.id!, cancellationReason, ctx, cancellationFeeAmount > 0 ? cancellationFeeAmount : undefined)
+              const feeServices = [
+                ...(bookingData.services || []),
+                ...(bookingData.rooms || []).flatMap((room: any) => room.services || []),
+              ].filter((service: any) => service.type === 'Cancellation Fee' || service.name === 'Cancellation Fee')
+              const feeTaxInclusive = feeServices.length > 0 &&
+                feeServices.every((service: any) => service.is_inclusive === true)
+              await ReservationCreationService.cancelReservation(
+                existingReservation, userId, cancellationReason, ctx, cancellationFeeAmount, feeTaxInclusive
+              )
               existingReservation.cancellationDate = DateTime.now();
               await existingReservation.save()
+              syncResults.totalUpdated++
               // Notify Front Office users and default hotel email for cancellation
               try {
                 await ReservationCreationService.sendAcknowledgeToChannex(
-                existingReservation.channexBookingId!, // ← UTILISER LE REVISION_ID ICI
+                revisionId,
                 existingReservation.id,
                 userId,
                 ctx
@@ -1920,11 +1938,22 @@ export default class ChannexMigrationController {
                   const FolioService = (await import('../services/folio_service.js')).default
                   const ReservationFolioService = (await import('../services/reservation_folio_service.js')).default
 
-                  for (const folio of reservation.folios) {
-                    await FolioTransaction.query().where('folioId', folio.id).delete()
+                  const otaServices = [
+                    ...(bookingData.services || []),
+                    ...(bookingData.rooms || []).flatMap((room: any) => room.services || []),
+                  ]
+                  const bookingIsNoShow = bookingData.is_no_show === true ||
+                    ['no_show', 'no-show', 'noshow'].includes(bookingData.status) ||
+                    otaServices.some((service: any) =>
+                      ['No Show Fee', 'No-Show'].includes(service.type) ||
+                      ['No Show Fee', 'No-Show'].includes(service.name)
+                    )
+                  if (!bookingIsNoShow) {
+                    for (const folio of reservation.folios) {
+                      await FolioTransaction.query().where('folioId', folio.id).delete()
+                    }
+                    await ReservationFolioService.postRoomCharges(reservation.id, userId)
                   }
-
-                  await ReservationFolioService.postRoomCharges(reservation.id, userId)
 
                   // === NO SHOW FEE: Extract from services and post to folio ===
                   let noShowFeeAmount = 0
@@ -1967,9 +1996,21 @@ export default class ChannexMigrationController {
                   }
 
                   // Post NO_SHOW_FEE transaction to each open folio
+                  const noShowServices = otaServices.filter((service: any) =>
+                    ['No Show Fee', 'No-Show'].includes(service.type) ||
+                    ['No Show Fee', 'No-Show'].includes(service.name)
+                  )
+                  const noShowTaxInclusive = noShowServices.length > 0 &&
+                    noShowServices.every((service: any) => service.is_inclusive === true)
+                  const existingPenalty = bookingIsNoShow
+                    ? await ReservationPenaltyService.reconcileOtaPenalty(
+                      reservation.folios.map((folio) => folio.id), TransactionCategory.NO_SHOW_FEE,
+                      noShowFeeAmount, userId, noShowTaxInclusive
+                    ) : undefined
                   if (noShowFeeAmount > 0) {
+                    let noShowFeePosted = !!existingPenalty
                     for (const folio of reservation.folios) {
-                      if (folio.status === 'open') {
+                      if (!noShowFeePosted && folio.status === 'open') {
                         try {
                           await FolioService.postTransaction({
                             folioId: folio.id,
@@ -1979,10 +2020,12 @@ export default class ChannexMigrationController {
                             amount: noShowFeeAmount,
                             quantity: 1,
                             unitPrice: noShowFeeAmount,
+                            taxAmount: noShowTaxInclusive ? 0 : undefined,
                             notes: `No-show fee from OTA booking revision`,
                             postedBy: userId,
                             transactionDate: DateTime.now(),
                           })
+                          noShowFeePosted = true
                           await LoggerService.log({
                             actorId: userId,
                             action: 'NO_SHOW_FEE_POSTED',
@@ -2010,7 +2053,20 @@ export default class ChannexMigrationController {
                   }
 
                   for (const folio of reservation.folios) {
-                    await FolioService.updateFolioTotals(folio.id)
+                    if (bookingIsNoShow) {
+                      await ReservationPenaltyService.voidCharges(
+                        folio.id, TransactionCategory.NO_SHOW_FEE, userId,
+                        bookingData.notes || 'Channex no-show'
+                      )
+                    } else {
+                      await FolioService.updateFolioTotals(folio.id)
+                    }
+                  }
+                  if (bookingIsNoShow) {
+                    reservation.merge({ status: ReservationStatus.NOSHOW, noShowDate: DateTime.now() })
+                    await reservation.save()
+                    await ReservationRoom.query().where('reservationId', reservation.id)
+                      .update({ status: 'no_show' })
                   }
                 }
               } catch (updateErr) {
@@ -2034,7 +2090,7 @@ export default class ChannexMigrationController {
               }
 
               await ReservationCreationService.sendAcknowledgeToChannex(
-                existingReservation.channexBookingId!, // ← UTILISER LE REVISION_ID ICI
+                revisionId,
                 existingReservation.id,
                 userId,
                 ctx

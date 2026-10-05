@@ -16,9 +16,10 @@ import logger from '@adonisjs/core/services/logger'
 import { ChannexService } from '../services/channex_service.js'
 import ReservationHook from '../hooks/reservation_hooks.js'
 import type { ReservationData } from '../types/reservationData.js'
-import { FolioStatus, ReservationProductStatus, ReservationStatus, TransactionStatus, TransactionType, TransactionCategory, WorkflowStatus } from '../enums.js'
+import { FolioStatus, ReservationProductStatus, ReservationStatus, TransactionType, TransactionCategory, WorkflowStatus } from '../enums.js'
 import Room from '../models/room.js'
 import ReservationRoomService from '#services/reservation_room_service'
+import ReservationPenaltyService from '#services/reservation_penalty_service'
 
 /**
  * Interface pour les données d'une chambre de réservation
@@ -1163,7 +1164,7 @@ export default class ReservationCreationService {
     }
   }
 
-  public static async cancelReservation(reservation: Reservation, userId: number,reason:string, ctx?: any, cancellationFeeAmount?: number) {
+  public static async cancelReservation(reservation: Reservation, userId: number,reason:string, ctx?: any, cancellationFeeAmount?: number, feeTaxInclusive = false) {
     // If OTA status indicates total cancellation, mirror controller cancelReservation
     const cancelledRooms: string[] = []
     // Cancel all reservation rooms
@@ -1197,10 +1198,16 @@ export default class ReservationCreationService {
     // Close folios and cancel transactions
     let foliosClosed = 0
     let transactionsCancelled = 0
+    const existingPenalty = cancellationFeeAmount !== undefined
+      ? await ReservationPenaltyService.reconcileOtaPenalty(
+        reservation.folios.map((folio) => folio.id), TransactionCategory.CANCELLATION_FEE,
+        cancellationFeeAmount, userId, feeTaxInclusive
+      ) : undefined
+    let cancellationFeePosted = !!existingPenalty
     for (const folio of reservation.folios) {
       if (folio.status === FolioStatus.OPEN) {
         // Post cancellation fee transaction BEFORE closing the folio
-        if (cancellationFeeAmount && cancellationFeeAmount > 0) {
+        if (!cancellationFeePosted && cancellationFeeAmount && cancellationFeeAmount > 0) {
           try {
             const FolioService = (await import('../services/folio_service.js')).default
             await FolioService.postTransaction({
@@ -1211,10 +1218,12 @@ export default class ReservationCreationService {
               amount: cancellationFeeAmount,
               quantity: 1,
               unitPrice: cancellationFeeAmount,
+              taxAmount: feeTaxInclusive ? 0 : undefined,
               notes: `Cancellation fee charged per OTA booking revision. Reason: ${reason || 'N/A'}`,
               postedBy: userId,
               transactionDate: DateTime.now(),
             })
+            cancellationFeePosted = true
             await LoggerService.log({
               actorId: userId,
               action: 'CANCELLATION_FEE_POSTED',
@@ -1247,15 +1256,10 @@ export default class ReservationCreationService {
         await folio.save()
         foliosClosed++
 
-        for (const transaction of (folio as any).transactions || []) {
-          if (transaction.status !== TransactionStatus.CANCELLED && transaction.category !== TransactionCategory.CANCELLATION_FEE) {
-            transaction.status = TransactionStatus.CANCELLED
-            transaction.lastModifiedBy = userId!
-            await transaction.save()
-            transactionsCancelled++
-          }
-        }
       }
+      transactionsCancelled += await ReservationPenaltyService.voidCharges(
+        folio.id, TransactionCategory.CANCELLATION_FEE, userId, reason || 'Channex cancellation'
+      )
     }
 
     const cancelledList = cancelledRooms.length > 0 ? `[${cancelledRooms.join(', ')}]` : '(none)'
