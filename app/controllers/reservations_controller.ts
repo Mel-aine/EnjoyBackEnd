@@ -8538,6 +8538,33 @@ export default class ReservationsController extends CrudController<typeof Reserv
         return response.notFound({ message: 'Reservation not found' })
       }
 
+      // -------------------------------
+      // 🎯 Optional room selection to update
+      // `roomIds` holds the room ids (rooms.id) to update, letting the caller
+      // target one or several rooms of a reservation (e.g. a group booking).
+      // When no room id is provided, the scope remains the one from `applyOn`.
+      // -------------------------------
+      const requestedRoomIds = payload.roomIds ?? []
+      const hasExplicitTransactions = (payload.transactionIds?.length ?? 0) > 0
+      const hasRoomSelection = requestedRoomIds.length > 0
+
+      const selectedReservationRoomIds = new Set<number>(
+        reservation.reservationRooms
+          .filter((rr) => !hasRoomSelection || (rr.roomId != null && requestedRoomIds.includes(rr.roomId)))
+          .map((rr) => rr.id)
+      )
+
+      if (hasRoomSelection && selectedReservationRoomIds.size === 0) {
+        await trx.rollback()
+        return response.badRequest({
+          message: 'No valid rooms selected for update',
+          details: 'None of the provided roomIds match this reservation.',
+        })
+      }
+
+      const isRoomSelected = (rr: { id: number }) => selectedReservationRoomIds.has(rr.id)
+      const updatedReservationRoomIds = new Set<number>()
+
       const oldRoomRates = new Map<number, number>()
       for (const rr of reservation.reservationRooms) {
         oldRoomRates.set(rr.id, rr.roomRate)
@@ -8571,15 +8598,31 @@ export default class ReservationsController extends CrudController<typeof Reserv
         }
       }
 
+      // 🎯 Explicit room selection: restrict the update scope
+      if (hasRoomSelection) {
+        if (hasExplicitTransactions) {
+          for (const id of [...targetReservationRoomIds]) {
+            if (!selectedReservationRoomIds.has(id)) targetReservationRoomIds.delete(id)
+          }
+        } else {
+          targetReservationRoomIds.clear()
+          for (const rr of reservation.reservationRooms) {
+            if (isRoomSelected(rr)) targetReservationRoomIds.add(rr.id)
+          }
+        }
+      }
+
       // -------------------------------
       // Update reservation rooms
       // -------------------------------
       for (const rr of reservation.reservationRooms) {
-        const shouldUpdateThisRoom = targetReservationRoomIds.has(rr.id)
+        const shouldUpdateThisRoom = targetReservationRoomIds.has(rr.id) && isRoomSelected(rr)
 
         if (!shouldUpdateThisRoom) {
           continue
         }
+
+        updatedReservationRoomIds.add(rr.id)
         if (payload.rateTypeId !== undefined) {
           rr.rateTypeId = payload.rateTypeId as number
           console.log(`   RateTypeId updated to: ${rr.rateTypeId}`)
@@ -8668,6 +8711,22 @@ export default class ReservationsController extends CrudController<typeof Reserv
       } else {
         const idSet = new Set(payload.transactionIds || [])
         roomChargeTransactionsToUpdate = roomChargeTransactions.filter((t) => idSet.has(t.id))
+      }
+
+      // 🎯 Restrict transactions to the selected rooms
+      if (hasRoomSelection) {
+        const resolveRoom = (t: FolioTransaction) =>
+          reservation.reservationRooms.find((r) => r.id === t.reservationRoomId) ??
+          reservation.reservationRooms.find(
+            (r) => `${(r.room as any)?.roomNumber ?? ''}` === `${t.roomNumber ?? ''}`
+          )
+
+        roomChargeTransactionsToUpdate = (
+          hasExplicitTransactions ? roomChargeTransactionsToUpdate : roomChargeTransactions
+        ).filter((t) => {
+          const rr = resolveRoom(t)
+          return Boolean(rr) && isRoomSelected(rr as { id: number })
+        })
       }
 
       // -------------------------------
@@ -9075,6 +9134,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       if (payload.applyOn === 'stay') {
         for (const rr of reservation.reservationRooms) {
+          if (!isRoomSelected(rr)) continue
           targetReservationRoomIds.add(rr.id)
           const pricing = roomPricingByReservationRoomId.get(rr.id)
           if (!pricing) continue
@@ -9088,6 +9148,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
         for (const t of targetTransactions) {
           const rrId = t.reservationRoomId
           if (!rrId) continue
+          if (hasRoomSelection && !selectedReservationRoomIds.has(rrId)) continue
           targetReservationRoomIds.add(rrId)
         }
 
@@ -9106,7 +9167,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       const targetRoomIds = new Set<number>()
       if (payload.applyOn === 'stay') {
-        for (const rr of reservation.reservationRooms) targetRoomIds.add(rr.id)
+        for (const rr of reservation.reservationRooms) {
+          if (!isRoomSelected(rr)) continue
+          targetRoomIds.add(rr.id)
+        }
       } else {
         for (const t of roomChargeTransactionsToUpdate) {
           if (t.reservationRoomId) targetRoomIds.add(t.reservationRoomId)
@@ -9242,7 +9306,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
         message: 'Reservation details updated successfully',
         data: {
           reservationId: reservation.id,
-          updatedRooms: reservation.reservationRooms.map(rr => rr.id),
+          updatedRooms: Array.from(updatedReservationRoomIds),
+          selectedRooms: hasRoomSelection ? Array.from(selectedReservationRoomIds) : [],
           updatedTransactions: roomChargeTransactionsToUpdate.map((t) => t.id),
           reservation
         }

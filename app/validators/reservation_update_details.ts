@@ -13,5 +13,8 @@ export const updateReservationDetailsValidator = vine.compile(
     date: vine.date().optional(),
     notes: vine.string().maxLength(1000).optional(),
     transactionIds: vine.array(vine.number().positive()).optional(),
+    // 🎯 Optional room selection (by room id).
+    // When provided, the update only applies to the matching room(s).
+    roomIds: vine.array(vine.number().positive()).optional(),
   })
 )
