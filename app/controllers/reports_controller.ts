@@ -2799,7 +2799,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereBetween('current_working_date', [from, to])
         .where('category', TransactionCategory.ROOM)
-        .whereNotIn('status', ['cancelled', 'void'])
+        .whereNotIn('status', ['cancelled', 'voided'])
         .whereHas('folio', (folioQuery) => {
           folioQuery.whereHas('reservationRoom', (rrQuery) => {
             rrQuery.where('hotel_id', hotelId)
@@ -2816,7 +2816,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereBetween('current_working_date', [from, to])
         .where('category', TransactionCategory.EXTRACT_CHARGE)
-        .whereNotIn('status', ['cancelled', 'void'])
+        .whereNotIn('status', ['cancelled', 'voided'])
         .where('transaction_type', TransactionType.CHARGE)
         .whereHas('folio', (folioQuery) => {
           folioQuery.whereHas('reservationRoom', (rrQuery) => {
@@ -2870,7 +2870,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
         .where('category', TransactionCategory.EXTRACT_CHARGE)
-        .whereNotIn('status', ['cancelled', 'void'])
+        .whereNotIn('status', ['cancelled', 'voided'])
         .whereHas('extraCharge', (ecQ) => {
           ecQ.whereRaw("LOWER(name) LIKE '%early%'")
         })
@@ -2887,7 +2887,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
         .where('category', TransactionCategory.EXTRACT_CHARGE)
-        .whereNotIn('status', ['cancelled', 'void'])
+        .whereNotIn('status', ['cancelled', 'voided'])
         .whereHas('extraCharge', (ecQ) => {
           ecQ.whereRaw("LOWER(name) LIKE '%late%'")
         })
@@ -2907,7 +2907,7 @@ export default class ReportsController {
         .where('hotel_id', hotelId)
         .whereRaw('DATE(transaction_date) BETWEEN ? AND ?', [from, to])
         .where('category', TransactionCategory.ROOM)
-        .whereNotIn('status', ['cancelled', 'void'])
+        .whereNotIn('status', ['cancelled', 'voided'])
         .whereHas('folio', (folioQuery) => {
           folioQuery.whereHas('reservationRoom', (rrQuery) => {
             rrQuery.whereDoesntHave('roomType', (rtQuery) => rtQuery.where('is_paymaster', true))
@@ -6199,7 +6199,7 @@ export default class ReportsController {
           reportDate.toFormat('yyyy-MM-dd'),
         ])
         .where('category', 'room')
-        .whereNotIn('status', ['cancelled', 'void'])
+        .whereNotIn('status', ['cancelled', 'voided'])
         .whereDoesntHave('reservationRoom', (rrQuery) => {
           rrQuery.whereHas('room', (roomQuery) => {
             roomQuery.whereHas('roomType', (rtQuery) => {
@@ -6289,7 +6289,7 @@ export default class ReportsController {
         endDate.toFormat('yyyy-MM-dd'),
       ])
       .where('category', TransactionCategory.CANCELLATION_FEE)
-      .whereNotIn('status', ['cancelled', 'void'])
+      .whereNotIn('status', ['cancelled', 'voided'])
 
     return result.reduce((acc, cur) => acc + Number(cur.amount), 0)
   }
@@ -6313,7 +6313,7 @@ export default class ReportsController {
         endDate.toFormat('yyyy-MM-dd'),
       ])
       .where('category', TransactionCategory.NO_SHOW_FEE)
-      .whereNotIn('status', ['cancelled', 'void'])
+      .whereNotIn('status', ['cancelled', 'voided'])
 
     return result.reduce((acc, cur) => acc + Number(cur.amount), 0)
   }
@@ -6336,7 +6336,7 @@ export default class ReportsController {
         endDate.toFormat('yyyy-MM-dd'),
       ])
       .where('category', TransactionCategory.LATE_CHECKOUT_FEE)
-      .whereNotIn('status', ['cancelled', 'void'])
+      .whereNotIn('status', ['cancelled', 'voided'])
 
     return result.reduce((acc, cur) => acc + Number(cur.amount), 0)
   }
@@ -8967,7 +8967,7 @@ export default class ReportsController {
         })
         .whereBetween('current_working_date', [startDate, endDate])
         .where('category', 'room')
-        .whereNotIn('status', ['cancel', 'void'])
+        .whereNotIn('status', ['cancelled', 'voided'])
         .preload('folio', (folioQuery: any) => {
           folioQuery.preload('reservation', (reservationQuery: any) => {
             reservationQuery.preload('reservationRooms', (roomQuery: any) => {
@@ -14568,7 +14568,7 @@ export default class ReportsController {
       ])
       .where('category', 'room')
       .where('transaction_type', TransactionType.CHARGE)
-      .whereNotIn('status', ['cancelled', 'void'])
+      .whereNotIn('status', ['cancelled', 'voided'])
       .whereDoesntHave('reservationRoom', (rrQuery) => {
         rrQuery.whereHas('room', (roomQuery) => {
           roomQuery.whereHas('roomType', (rtQuery) => {
