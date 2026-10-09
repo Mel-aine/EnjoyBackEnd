@@ -14,6 +14,7 @@ import CurrencyCacheService from '#services/currency_cache_service'
 import { generateTransactionCode } from '../utils/generate_guest_code.js'
 import db from '@adonisjs/lucid/services/db'
 import CreditLedgerService from '#services/credit_ledger_service'
+import CancellationService from '#services/cancellation_service'
 import logger from '@adonisjs/core/services/logger'
 
 function runInBackground(task: () => Promise<void>) {
@@ -474,6 +475,12 @@ async store(ctx: HttpContext) {
     await transaction.load('folio')
     await transaction.load('paymentMethod')
 
+    // Recalcul de la dette d'annulation du client (le paiement peut solder une pénalité)
+
+      console.log('[DEBT] transfert credit ledger terminé, folioId =', payload.folioId)
+      CancellationService.queueGuestDebtRecomputeForFolio(payload.folioId)
+
+
     return response.created({
       message: 'Folio transaction created successfully',
       data: transaction
@@ -567,6 +574,11 @@ async store(ctx: HttpContext) {
       // Update folio totals (service does this, but keeping consistent here)
       await this.updateFolioTotals(updated.folioId)
 
+      // Recalcul de la dette d'annulation du client (le paiement modifié peut impacter la dette)
+      if (updated.transactionType === TransactionType.PAYMENT || updated.transactionType === TransactionType.REFUND) {
+        CancellationService.queueGuestDebtRecomputeForFolio(updated.folioId)
+      }
+
       return response.ok({
         message: 'Folio transaction updated successfully',
         data: updated,
@@ -607,10 +619,16 @@ async store(ctx: HttpContext) {
       }
 
       const folioId = transaction.folioId
+      const wasPayment = transaction.transactionType === TransactionType.PAYMENT || transaction.transactionType === TransactionType.REFUND
       await transaction.delete()
 
       // Update folio totals
       await this.updateFolioTotals(folioId)
+
+      // Recalcul de la dette d'annulation du client
+      if (wasPayment) {
+        CancellationService.queueGuestDebtRecomputeForFolio(folioId)
+      }
 
       return response.ok({
         message: 'Folio transaction deleted successfully'
@@ -643,6 +661,11 @@ async store(ctx: HttpContext) {
 
       // Update folio totals
       await this.updateFolioTotals(transaction.folioId)
+
+      // Recalcul de la dette d'annulation du client
+      if (transaction.transactionType === TransactionType.PAYMENT || transaction.transactionType === TransactionType.REFUND) {
+        CancellationService.queueGuestDebtRecomputeForFolio(transaction.folioId)
+      }
 
       return response.ok({
         message: 'Transaction posted successfully',
@@ -706,6 +729,11 @@ async store(ctx: HttpContext) {
 
       // Update folio totals
       await this.updateFolioTotals(transaction.folioId)
+
+      // Recalcul de la dette d'annulation du client (le paiement voidé ne couvre plus la pénalité)
+      if (transaction.transactionType === TransactionType.PAYMENT || transaction.transactionType === TransactionType.REFUND) {
+        CancellationService.queueGuestDebtRecomputeForFolio(transaction.folioId)
+      }
 
       // Void related receipt if this is a payment transaction
       if (transaction.transactionType === TransactionType.PAYMENT) {

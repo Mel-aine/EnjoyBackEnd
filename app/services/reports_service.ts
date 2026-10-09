@@ -726,7 +726,11 @@ export class ReservationReportsService {
         source: reservation.bookingSource?.sourceName || 'N/A',
         cancelledBy: reservation.creator ? `${reservation.creator.firstName} ${reservation.creator.lastName}` : 'System',
         cancelledDate: reservation.cancellationDate?.toFormat('yyyy-MM-dd') || 'N/A',
-        remarks: reservation.cancellationReason || ''
+        remarks: reservation.cancellationReason || '',
+        cancellationWaiveReason : reservation.cancellationWaiveReason,
+        cancellationFeeAmount : reservation.cancellationFeeAmount,
+        cancallationFeeWaived : reservation.cancellationFeeWaived,
+        cancellationType : reservation.cancellationType
       }
     })
 

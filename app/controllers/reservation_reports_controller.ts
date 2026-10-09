@@ -69,6 +69,7 @@ export default class ReservationReportsController {
       const payload = await request.validateUsing(createReservationReportValidator)
       const reportData = await this.buildCancellationListData(payload, payload.hotelId)
 
+
       return response.ok({
         success: true,
         message: 'Cancellation list report generated successfully',
@@ -872,7 +873,12 @@ export default class ReservationReportsController {
           source: reservation.businessSource?.name || '',
           cancelledBy: reservation.creator ? `${reservation.creator.firstName} ${reservation.creator.lastName}` : 'System',
           cancelledDate: reservation.cancellationDate?.toFormat('yyyy-MM-dd') || 'N/A',
-          remarks: reservation.cancellationReason || ''
+          remarks: reservation.cancellationReason || '',
+          cancellationWaiveReason : reservation.cancellationWaiveReason,
+          cancellationFeeAmount : reservation.cancellationFeeAmount,
+          cancallationFeeWaived : reservation.cancellationFeeWaived,
+          cancellationType : reservation.cancellationType
+
         }
       })
 

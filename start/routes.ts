@@ -13,6 +13,7 @@ import PermissionsController from '#controllers/permissions_controller'
 import TasksController from '#controllers/tasks_controller'
 import RolePermissionsController from '#controllers/role_permissions_controller'
 import CancellationPoliciesController from '#controllers/cancellation_policies_controller'
+import CancellationSettingsController from '#controllers/cancellation_settings_controller'
 import HotelsController from '#controllers/hotels_controller'
 import CurrenciesController from '#controllers/currencies_controller'
 import GuestsController from '#controllers/guests_controller'
@@ -209,6 +210,7 @@ const tasksController = new TasksController()
 const rolePermissionsController = new RolePermissionsController()
 const activityLogsController = new ActivityLogsController()
 const cancellationPoliciesController = new CancellationPoliciesController()
+const cancellationSettingsController = new CancellationSettingsController()
 const hotelsController = new HotelsController()
 const currenciesController = new CurrenciesController()
 const guestsController = new GuestsController()
@@ -777,6 +779,9 @@ router
         // Guest status management
         router.patch('/:id/update-vip-status', guestsController.updateVipStatus.bind(guestsController)) // Update VIP status
         router.patch('/:id/toggle-blacklist', guestsController.toggleBlacklist.bind(guestsController)) // Toggle blacklist status
+
+        // Dette / pénalité d'annulation non réglée (indicateur fiche client)
+        router.get('/:id/cancellation-debts', [ReservationsController, 'getGuestCancellationDebts'])
       })
       .prefix('guests')
 
@@ -1099,6 +1104,7 @@ router
         router.post('/:reservationId/stop-room-move', [ReservationsController, 'stopRoomMove'])
         router.get('/:reservationId/inclusion-list', [ReservationsController, 'getInclusionList'])
         router.post('/:reservationId/cancel', [ReservationsController, 'cancelReservation'])
+        router.get('/:id/cancellation-evaluation', [ReservationsController, 'getCancellationEvaluation'])
         router.post('/:reservationId/no-show', [ReservationsController, 'markNoShow'])
         router.post('/:reservationId/void', [ReservationsController, 'voidReservation'])
         router.post('/:reservationId/unassign-room', [ReservationsController, 'unassignRoom'])
@@ -1560,6 +1566,14 @@ router
         )
       })
       .prefix('cancellation-policies')
+
+    // Cancellation Settings — politique d'annulation globale de l'établissement
+    router
+      .group(() => {
+        router.get('/:hotelId', cancellationSettingsController.show.bind(cancellationSettingsController))
+        router.put('/:hotelId', cancellationSettingsController.update.bind(cancellationSettingsController))
+      })
+      .prefix('cancellation-settings')
 
 
     /// hotel router
