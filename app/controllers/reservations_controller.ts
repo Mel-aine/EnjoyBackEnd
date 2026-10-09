@@ -1276,9 +1276,11 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const avgDailyRate = this.calculateAvgDailyRate(reservation)
 
       // Determine available actions based on reservation status
+
       const availableActions = this.getAvailableActions(
         reservation,
-        JSON.parse(auth.user?.permisPrivileges || '[]')
+        JSON.parse(auth.user?.permisPrivileges || '[]'),
+        balanceSummary
       )
 
 
@@ -1436,7 +1438,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
   /**
    * Get available actions based on reservation status
    */
-  private getAvailableActions(reservation: any, userPermissions: string[]) {
+  private getAvailableActions(reservation: any, userPermissions: string[],balanceSummary?: any) {
     const actions = []
     const status =
       reservation.status?.toLowerCase() || reservation.reservation_status?.toLowerCase()
@@ -1525,14 +1527,19 @@ export default class ReservationsController extends CrudController<typeof Reserv
       })
     }
     // Add Payment: Available for all active reservations
+    const outstandingBalance = Number(balanceSummary?.outstandingBalance) || 0
+
     if (
       userPermissions.includes('add_item_to_open_folio') &&
-      !['cancelled', 'no-show', 'voided'].includes(status)
+      (!['no-show', 'voided'].includes(status))
     ) {
       actions.push({
         action: 'add_payment',
         label: 'Add Payment',
-        description: 'Record a payment to reduce outstanding balance',
+        description:
+          outstandingBalance < 0
+            ? 'Refund the outstanding credit to the guest'
+            : 'Record a payment to reduce outstanding balance',
         available: true,
         route: `/reservations/${reservation.id}/add-payment`,
       })
@@ -1995,6 +2002,55 @@ export default class ReservationsController extends CrudController<typeof Reserv
     }
   }
 
+  /**
+   * GET /api/reservations/:id/cancellation-evaluation
+   * Analyse automatique du délai et calcul de la pénalité selon la politique
+   * globale de l'établissement (utilisé par la modale d'annulation).
+   */
+  public async getCancellationEvaluation({ params, response }: HttpContext) {
+    try {
+      const reservationId = Number(params.id)
+      if (!Number.isFinite(reservationId)) {
+        return response.badRequest({ message: 'Invalid reservation id' })
+      }
+      const CancellationService = (await import('#services/cancellation_service')).default
+      const evaluation = await CancellationService.evaluateCancellation(reservationId)
+      return response.ok(evaluation)
+    } catch (error:any) {
+      console.error('Error getting cancellation evaluation:', error)
+      const isNotFound = error?.message?.includes('E_ROW_NOT_FOUND') || error?.code === 'E_ROW_NOT_FOUND'
+      return isNotFound
+        ? response.notFound({ message: 'Reservation not found' })
+        : response.internalServerError({
+          message: 'Failed to get cancellation evaluation',
+          error: error.message,
+        })
+    }
+  }
+
+  /**
+   * GET /api/guests/:guestId/cancellation-debts
+   * Indicateur "Dette / Pénalité d'annulation non réglée" de la fiche client.
+   */
+  public async getGuestCancellationDebts({ params, response }: HttpContext) {
+    try {
+      const guestId = Number(params.id)
+
+      if (!Number.isFinite(guestId)) {
+        return response.badRequest({ message: 'Invalid guest id' })
+      }
+      const CancellationService = (await import('#services/cancellation_service')).default
+      const debts = await CancellationService.getGuestOutstandingDebts(guestId)
+      return response.ok(debts)
+    } catch (error:any) {
+      console.error('Error getting guest cancellation debts:', error)
+      return response.internalServerError({
+        message: 'Failed to get guest cancellation debts',
+        error: error.message,
+      })
+    }
+  }
+
   public async getCancellationSummary({ params, response }: HttpContext) {
     try {
       const reservationId = params.id
@@ -2102,8 +2158,40 @@ export default class ReservationsController extends CrudController<typeof Reserv
   public async cancelReservation(ctx: HttpContext) {
     const { params, request, response, auth } = ctx
     const reservationId = params.reservationId
-    const { reason, cancellationFee, selectedRooms } = request.body()
+    const {
+      reason,
+      cancellationFee,
+      selectedRooms,
+      waiveFee,
+      waiveReason,
+      usePolicyEngine,
+    } = request.body()
 
+    // Nouveau moteur de politique d'annulation (activation par défaut sauf
+    // si usePolicyEngine === false explicitement envoyé par un client legacy)
+    const useCancellationService = usePolicyEngine !== false
+
+    if (useCancellationService) {
+  try {
+    const CancellationService = (await import('#services/cancellation_service')).default
+    const result = await CancellationService.processCancellation(Number(reservationId), {
+      userId: auth.user!.id,
+      reason,
+      selectedRooms,
+      waiveFee: Boolean(waiveFee),
+      waiveReason,
+      overrideFeeAmount:
+        typeof cancellationFee === 'number' && cancellationFee > 0 && waiveFee !== true
+          ? cancellationFee
+          : undefined,
+      ctx,
+    })
+    // notifications...
+    return response.ok({ message: result.summaryMessage, ...result })
+  } catch (error) {
+    console.error('Policy-engine cancellation failed, falling back:', error)
+  }
+}
     const trx = await db.transaction()
 
     try {
@@ -2590,11 +2678,12 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
       // Calculate balanceSummary and availableActions for each reservation
       const enrichedReservations = reservations.map((reservation) => {
-        const balanceSummary = ReservationsController.calculateBalanceSummary(reservation.folios)
-        const availableActions = this.getAvailableActions(
-          reservation,
-          JSON.parse(auth.user?.permisPrivileges || '[]')
-        )
+      const balanceSummary = ReservationsController.calculateBalanceSummary(reservation.folios)
+      const availableActions = this.getAvailableActions(
+        reservation,
+        JSON.parse(auth.user?.permisPrivileges || '[]'),
+        balanceSummary
+      )
 
         // Include computed fields from the reservation model
         const reservationData = reservation.toJSON()
@@ -3175,7 +3264,8 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const balanceSummary = ReservationsController.calculateBalanceSummary(reservation.folios)
       const availableActions = this.getAvailableActions(
         reservation,
-        JSON.parse(auth.user?.permisPrivileges || '[]')
+        JSON.parse(auth.user?.permisPrivileges || '[]'),
+        balanceSummary
       )
 
       // Construire la réponse complète
@@ -4616,6 +4706,10 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       await trx.commit()
+      // Recalcul de la dette d'annulation du client (le paiement peut solder une pénalité)
+      const CancellationService = (await import('#services/cancellation_service')).default
+      CancellationService.queueGuestDebtRecomputeForFolio(folio.id)
+
       //log for guest
       await LoggerService.log({
         actorId: auth.user?.id!,

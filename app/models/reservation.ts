@@ -142,6 +142,25 @@ export default class Reservation extends BaseModel {
   @column({ columnName: 'cancellation_fee_amount' })
   declare cancellationFeeAmount: number | null
 
+  /**
+   * Type d'annulation évalué par la politique : 'in_window' (dans les délais)
+   * ou 'late' (tardive, hors délai de franchise)
+   */
+  @column({ columnName: 'cancellation_type' })
+  declare cancellationType: 'in_window' | 'late' | null
+
+  /** Dérogation manager : frais d'annulation exonérés */
+  @column({ columnName: 'cancellation_fee_waived' })
+  declare cancellationFeeWaived: boolean
+
+  /** Motif d'exonération (obligatoire si cancellationFeeWaived = true) */
+  @column({ columnName: 'cancellation_waive_reason' })
+  declare cancellationWaiveReason: string | null
+
+  /** Utilisateur (Admin/Manager) ayant annulé la réservation */
+  @column({ columnName: 'cancelled_by_user_id' })
+  declare cancelledByUserId: number | null
+
   @column({ columnName: 'estimated_checkin_time' })
   declare estimatedCheckinTime: string | null
 
@@ -509,6 +528,9 @@ export default class Reservation extends BaseModel {
 
   @belongsTo(() => User, { foreignKey: 'mark_no_show_by' })
   declare markNoShowByUser: BelongsTo<typeof User>
+
+  @belongsTo(() => User, { foreignKey: 'cancelled_by_user_id' })
+  declare cancelledByUser: BelongsTo<typeof User>
 
   @hasMany(() => ReservationServiceProduct, {
     foreignKey: 'reservation_id',
