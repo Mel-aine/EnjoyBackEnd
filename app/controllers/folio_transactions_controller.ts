@@ -285,6 +285,7 @@ async store(ctx: HttpContext) {
       quantity: payload.quantity || 1,
       paymentMethodId: payload.paymentMethodId,
       extraChargeId: payload.extraChargeId,
+      guestId: folio.guestId as any,
       serviceChargeAmount: payload.serviceChargeAmount || 0,
       serviceChargeRate: payload.serviceChargeRate || 0,
       discountAmount: 0,
