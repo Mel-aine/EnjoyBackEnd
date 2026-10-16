@@ -125,6 +125,7 @@ export default class CityLedgerService {
         folioQuery.preload('reservation')
       })
       .preload('paymentMethod')
+      .preload('guest')
       .preload('creator')
 
     // Apply date filters
@@ -170,11 +171,12 @@ export default class CityLedgerService {
     const dateColumn = filters.usePostingDate ? 'posting_date' : 'transaction_date'
     query.orderBy('created_at', 'asc')
 
+
     // Get paginated results
     const paginatedResult = await query.paginate(page, limit)
 
     // Calculate running balance and format transactions
-    const transactions: CityLedgerTransaction[] = []
+    const transactions: any[] = []
     // Process transactions in reverse order to calculate running balance correctly
     const reversedTransactions = [...paginatedResult.all()].reverse()
 
@@ -201,6 +203,9 @@ export default class CityLedgerService {
         unassigned = transaction.unassignedAmount;
       }
 
+      const fullName = [transaction.guest?.firstName, transaction.guest?.lastName]
+        .filter(Boolean)
+        .join(' ') || ''
 
       transactions.push({
         id: transaction.id,
@@ -209,7 +214,7 @@ export default class CityLedgerService {
         description: transaction.description || transaction.particular,
         paymentType: transaction.paymentMethod?.methodName,
         paymentTypeId: transaction.paymentMethod?.id,
-        guestName: transaction.folio?.guest?.fullName || transaction.guestName,
+        guestName: fullName ,
         folioNo: transaction.folio?.folioNumber,
         user: transaction.creator?.fullName || transaction.folio?.guest?.fullName,
         amount: Math.abs(transaction.amount || 0),
