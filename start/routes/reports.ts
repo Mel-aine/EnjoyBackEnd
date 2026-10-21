@@ -306,6 +306,8 @@ router.group(() => {
   router.group(() => {
     // Get hotel histories with pagination and filters
     router.get('/', [HotelHistoriesController, 'index'])
+    // Print an invoice with all reservations of the searched guest
+    router.post('/invoice-pdf', [HotelHistoriesController, 'printInvoicePdf'])
   }).prefix('/hotel-histories')
 
   //service report

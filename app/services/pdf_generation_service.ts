@@ -17,6 +17,119 @@ export interface PdfOptions {
   footerTemplate?: string
 }
 
+export interface GuestHistoryInvoiceReservation {
+  reservationNumber: string
+  folioNumber: string
+  guestName: string
+  company: string
+  nationality: string
+  guestCode: string
+  pax: number
+  adults: number
+  children: number
+  nights: number
+  roomNumber: string
+  arrivalDate: string | Date
+  departureDate: string | Date
+  checkInTime: string
+  checkOutTime: string
+  tariff: number
+  rateType: string
+  reservedBy: string
+  checkedInBy: string
+  checkedOutBy: string
+  totals: {
+    totalChargesWithTaxes: number
+    totalPayments: number
+    totalTaxes: number
+    outstandingBalance: number
+  }
+}
+
+export interface GuestHistoryInvoiceData {
+  hotel: {
+    name: string
+    address: string
+    city?: string
+    state?: string
+    country?: string
+    phone: string
+    email: string
+    website?: string
+    registrationNumber?: string | null
+    rcNumber?: string | null
+  }
+  guest: {
+    name: string
+    email?: string | null
+    phone?: string | null
+    address?: string | null
+    city?: string | null
+    country?: string | null
+  }
+  meta: {
+    invoiceNumber: string
+    generatedAt: string
+    printedBy: string
+    periodFrom: string
+    periodTo: string
+  }
+  currency: { code: string }
+  reservations: GuestHistoryInvoiceReservation[]
+}
+
+interface HotelInvoiceTemplateData {
+  hotel: {
+    name: string
+    address: string
+    phone: string
+    email: string
+    website?: string
+    registrationNumber?: string | null
+    rcNumber?: string | null
+  }
+  reservation: {
+    reservationNumber: string
+    guest: {
+      displayName: string
+      guestCode?: string
+      address?: string
+      country?: string
+    }
+    company?: string
+    adults: number
+    children: number
+    roomNumber: string
+    checkInDate: string | Date
+    checkOutDate: string | Date
+    tariff: number
+    checkInTime: string
+    checkOutTime: string
+    rateType: string
+    reservedBy: string
+    checkedInBy: string
+    checkedOutBy: string
+  }
+  folio: {
+    folioNumber: string
+    reservationNumber: string
+  }
+  transactions: Array<{
+    date: string | Date
+    transactionNumber: string
+    description: string
+    amount: number
+    balance: number
+  }>
+  totals: {
+    totalChargesWithTaxes: number
+    totalPayments: number
+    totalTaxes: number
+    outstandingBalance: number
+  }
+  currency: { code: string }
+}
+
 export default class PdfGenerationService {
   /**
    * Generate PDF from folio print data
@@ -1555,16 +1668,17 @@ static async generateSuitaHotelPdfFrench(
         })}`
     }
 
-    private static generateHotelHtmlTemplate(data: FolioPrintData): string {
+    private static generateHotelHtmlTemplate(
+      data: FolioPrintData | HotelInvoiceTemplateData
+    ): string {
         const {
             hotel,
             reservation,
             folio,
             transactions,
             totals,
-            total,
             currency,
-        } = data
+        } = data as HotelInvoiceTemplateData
 
         // Convert amount to words
         const amountInWords = this.numberToWords(totals.totalChargesWithTaxes)
@@ -2049,16 +2163,17 @@ static async generateSuitaHotelPdfFrench(
         </body>
         </html>`
     }
-    private static generateHotelHtmlTemplateFrench(data: FolioPrintData): string {
+    private static generateHotelHtmlTemplateFrench(
+      data: FolioPrintData | HotelInvoiceTemplateData
+    ): string {
         const {
             hotel,
             reservation,
             folio,
             transactions,
             totals,
-            total,
             currency,
-        } = data;
+        } = data as HotelInvoiceTemplateData;
 
         // Convertir le montant en lettres
         const amountInWords = this.numberToWords(totals.totalChargesWithTaxes);
@@ -2541,8 +2656,665 @@ static async generateSuitaHotelPdfFrench(
         <body>
             ${allPages}
         </body>
-        </html>`;
+        </html>`
+  }
+
+  /**
+   * Données d'une réservation pour sa facture dans l'historique client.
+   */
+  private static generateGuestHistoryHotelTemplate(
+    data: GuestHistoryInvoiceData,
+    french: boolean
+  ): string {
+    const { hotel, guest, currency, reservations } = data
+    const invoicePages = reservations.map((reservation) => {
+      const charges = Number(reservation.totals.totalChargesWithTaxes) || 0
+      const payments = Number(reservation.totals.totalPayments) || 0
+      const balanceAfterCharges = charges
+      const balanceAfterPayments = balanceAfterCharges - payments
+      const arrivalDate = reservation.arrivalDate || new Date()
+      const departureDate = reservation.departureDate || arrivalDate
+      const transactionDate = arrivalDate
+
+      const templateData: HotelInvoiceTemplateData = {
+        hotel,
+        reservation: {
+          reservationNumber: reservation.reservationNumber,
+          guest: {
+            displayName: reservation.guestName || guest.name,
+            guestCode: reservation.guestCode,
+            address: guest.address || undefined,
+            country: guest.country || undefined,
+          },
+          company: reservation.company,
+          adults: reservation.adults,
+          children: reservation.children,
+          roomNumber: reservation.roomNumber,
+          checkInDate: arrivalDate,
+          checkOutDate: departureDate,
+          tariff: reservation.tariff,
+          checkInTime: reservation.checkInTime,
+          checkOutTime: reservation.checkOutTime,
+          rateType: reservation.rateType,
+          reservedBy: reservation.reservedBy,
+          checkedInBy: reservation.checkedInBy,
+          checkedOutBy: reservation.checkedOutBy,
+        },
+        folio: {
+          folioNumber:
+            reservation.folioNumber && reservation.folioNumber !== '-'
+              ? reservation.folioNumber
+              : reservation.reservationNumber,
+          reservationNumber: reservation.reservationNumber,
+        },
+        transactions: [
+          {
+            date: transactionDate,
+            transactionNumber: '',
+            description: french ? 'Charges de la réservation' : 'Reservation charges',
+            amount: charges,
+            balance: balanceAfterCharges,
+          },
+          ...(payments > 0
+            ? [
+                {
+                  date: transactionDate,
+                  transactionNumber: '',
+                  description: french ? 'Paiements reçus' : 'Payments received',
+                  amount: -payments,
+                  balance: balanceAfterPayments,
+                },
+              ]
+            : []),
+        ],
+        totals: {
+          totalChargesWithTaxes: charges,
+          totalPayments: payments,
+          totalTaxes: Number(reservation.totals.totalTaxes) || 0,
+          outstandingBalance: Number.isFinite(Number(reservation.totals.outstandingBalance))
+            ? Number(reservation.totals.outstandingBalance)
+            : balanceAfterPayments,
+        },
+        currency,
+      }
+
+      return french
+        ? this.generateHotelHtmlTemplateFrench(templateData)
+        : this.generateHotelHtmlTemplate(templateData)
+    })
+
+    const style = invoicePages[0]?.match(/<style>[\s\S]*?<\/style>/i)?.[0]
+    const pageContents = invoicePages.map((invoicePage) => {
+      const body = invoicePage.match(/<body[^>]*>([\s\S]*?)<\/body>/i)?.[1]
+      if (!body) throw new Error('Unable to extract invoice page content')
+      return body
+    })
+
+    if (!style) throw new Error('Unable to extract invoice template styles')
+
+    return `<!DOCTYPE html>
+      <html lang="${french ? 'fr' : 'en'}">
+        <head>
+          <meta charset="UTF-8">
+          ${style}
+        </head>
+        <body>${pageContents.join('')}</body>
+      </html>`
+  }
+
+  /** Escape values before inserting them into guest-history HTML. */
+  static escapeGuestHistoryHtml(value: any): string {
+    if (value === null || value === undefined || value === '') return '-'
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+  }
+
+  /**
+   * Génère une facture distincte par réservation de l'historique client.
+   */
+  static async generateGuestHistoryPdf(
+    data: GuestHistoryInvoiceData,
+    options: PdfOptions = {}
+  ): Promise<Buffer> {
+    return this.renderGuestHistoryPdf(data, options, false)
+  }
+
+  static async generateGuestHistoryPdfFrench(
+    data: GuestHistoryInvoiceData,
+    options: PdfOptions = {}
+  ): Promise<Buffer> {
+    return this.renderGuestHistoryPdf(data, options, true)
+  }
+
+  private static async renderGuestHistoryPdf(
+    data: GuestHistoryInvoiceData,
+    options: PdfOptions,
+    french: boolean
+  ): Promise<Buffer> {
+    try {
+      const defaultOptions = {
+        format: 'A4',
+        orientation: 'portrait',
+        margin: {
+          top: '10mm',
+          right: '10mm',
+          bottom: '10mm',
+          left: '10mm',
+        },
+        displayHeaderFooter: false,
+        printBackground: true,
+        ...options,
+      }
+
+      const htmlContent = this.generateGuestHistoryHtmlTemplate(data, french)
+
+      const pdfOptions = {
+        format: defaultOptions.format,
+        orientation: defaultOptions.orientation,
+        margin: {
+          top: defaultOptions.margin.top,
+          right: defaultOptions.margin.right,
+          bottom: defaultOptions.margin.bottom,
+          left: defaultOptions.margin.left,
+        },
+        displayHeaderFooter: defaultOptions.displayHeaderFooter,
+        headerTemplate: options.headerTemplate,
+        footerTemplate: options.footerTemplate,
+        type: 'pdf',
+        quality: '75',
+        renderDelay: 500,
+        zoomFactor: 1,
+      }
+
+      const file = { content: htmlContent }
+      return await htmlPdf.generatePdf(file, pdfOptions as any)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      throw new Error(`Failed to generate Guest History PDF: ${message}`)
     }
+  }
+
+  private static generateGuestHistoryHtmlTemplate(
+    data: GuestHistoryInvoiceData,
+    french: boolean
+  ): string {
+    const { hotel, guest, meta, currency, reservations } = data
+    if (reservations.length > 0) {
+      return this.generateGuestHistoryHotelTemplate(data, french)
+    }
+
+    const esc = (value: any) => this.escapeGuestHistoryHtml(value)
+    const formatDate = (value: any) => {
+      const date = new Date(value)
+      if (!value || Number.isNaN(date.getTime())) return '-'
+      return date.toLocaleDateString(french ? 'fr-FR' : 'en-GB')
+    }
+
+    const labels = french
+      ? {
+          htmlLang: 'fr',
+          title: 'Facture Fiscale',
+          taxInvoice: 'Facture Fiscale',
+          folioRes: 'N° Folio / N° Réservation',
+          guestName: 'Nom du Client',
+          company: "Nom de l'Entreprise",
+          date: 'Date:',
+          nationality: 'Nationalité',
+          pax: 'Nombre de Personnes',
+          adultsChildren: 'Adultes / Enfants',
+          grCard: 'N° Carte G.R.',
+          roomNo: 'N° Chambre',
+          arrival: "Date d'Arrivée",
+          departure: 'Date de Départ',
+          tariff: 'Tarif',
+          arrivalTime: "Heure d'Arrivée",
+          departureTime: 'Heure de Départ',
+          status: 'Statut',
+          rateType: 'Type de Tarif',
+          colDate: 'Date',
+          colRef: 'Réf. N°',
+          colDetails: 'Détails',
+          colCharges: 'Charges',
+          colPayments: 'Paiements',
+          colBalance: 'Solde',
+          accommodation: 'Hébergement',
+          taxes: 'Taxes',
+          advance: 'Avance',
+          noTransaction: 'Aucune transaction trouvée',
+          grandTotal: 'Total Général',
+          totalPaid: 'Total Payé',
+          balance: 'Solde',
+          currencyLine: 'Ce document est en',
+          billTo: 'Facturer À',
+          address: 'Adresse',
+          remark: 'Remarques',
+          nights: 'nuit(s)',
+          thanks: 'Merci pour votre séjour parmi nous. Au plaisir de vous revoir.',
+          noticeTitle: 'AVIS FOLIO',
+          noticeBody: 'Ceci est un document de facturation officiel',
+          reservedBy: 'Réservé Par:',
+          checkedInBy: 'Check-in Par:',
+          checkedOutBy: 'Check-out Par:',
+          page: (current: number, total: number) => `Page ${current} sur ${total}`,
+          summaryTitle: 'Récapitulatif des réservations',
+          colRes: 'Res. N°',
+          colRoom: 'N° Chambre',
+          colNights: 'Nuits',
+          colTotal: 'Total',
+          invoiceNo: 'N° Facture',
+          guestReservations: 'Réservations',
+          printedBy: 'Imprimé par',
+          phone: 'Téléphone:',
+          website: 'Site web:',
+        }
+      : {
+          htmlLang: 'en',
+          title: 'Tax Invoice',
+          taxInvoice: 'Tax Invoice',
+          folioRes: 'Folio No./Res No.',
+          guestName: 'Guest Name',
+          company: 'Company Name',
+          date: 'Date:',
+          nationality: 'Nationality',
+          pax: 'No of Pax',
+          adultsChildren: 'Adult Child',
+          grCard: 'G.R. Card No',
+          roomNo: 'Room No',
+          arrival: 'Date of Arrival',
+          departure: 'Date of Departure',
+          tariff: 'Tariff',
+          arrivalTime: 'Time Of Arrival',
+          departureTime: 'Time of Departure',
+          status: 'Status',
+          rateType: 'Rate Type',
+          colDate: 'Date',
+          colRef: 'Ref.No.',
+          colDetails: 'Particular',
+          colCharges: 'Charges',
+          colPayments: 'Payment',
+          colBalance: 'Balance',
+          accommodation: 'Accommodation',
+          taxes: 'Tax',
+          advance: 'Advance',
+          noTransaction: 'No transactions found',
+          grandTotal: 'Grand Total',
+          totalPaid: 'Total Paid',
+          balance: 'Balance',
+          currencyLine: 'This document is in',
+          billTo: 'Bill To',
+          address: 'Address',
+          remark: 'Remark',
+          nights: 'night(s)',
+          thanks: 'Thank you for your stay with us. Please visit us again.',
+          noticeTitle: 'Folio NOTICE',
+          noticeBody: 'This is an official billing document',
+          reservedBy: 'Reserved By:',
+          checkedInBy: 'Checked In By:',
+          checkedOutBy: 'Checked Out By:',
+          page: (current: number, total: number) => `Page ${current} of ${total}`,
+          summaryTitle: 'Reservations Summary',
+          colRes: 'Res. No.',
+          colRoom: 'Room No',
+          colNights: 'Nights',
+          colTotal: 'Total',
+          invoiceNo: 'Invoice No.',
+          guestReservations: 'Reservations',
+          printedBy: 'Printed by',
+          phone: 'Phone:',
+          website: 'URL:',
+        }
+
+    const formatAmount = (value: number) => {
+      const amount = Number(value)
+      if (!Number.isFinite(amount)) return '0'
+      return amount.toLocaleString(french ? 'fr-FR' : 'en-GB', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      })
+    }
+
+    const invoiceContent = reservations
+      .map((reservation) => {
+        const invoiceNumber =
+          (reservation.folioNumber && reservation.folioNumber !== '-'
+            ? reservation.folioNumber
+            : '') ||
+          reservation.reservationNumber ||
+          meta.invoiceNumber
+        const total = Number(reservation.totals.totalChargesWithTaxes) || 0
+        const taxes = Number(reservation.totals.totalTaxes) || 0
+        const charges = total - taxes
+
+        return `
+          <div class="container">
+            <div class="header">
+              <div class="registration-info">
+                ${hotel.registrationNumber ? `${esc(hotel.registrationNumber)}<br>` : ''}
+                ${hotel.rcNumber ? esc(hotel.rcNumber) : ''}
+              </div>
+              <div class="hotel-info">
+                <h1>${esc(hotel.name)}</h1>
+                <div class="hotel-details">
+                  ${[hotel.address, hotel.city, hotel.state, hotel.country].filter(Boolean).map(esc).join(', ')}<br>
+                  ${hotel.phone ? `${labels.phone} ${esc(hotel.phone)}<br>` : ''}
+                  ${hotel.email ? esc(hotel.email) : ''}
+                  ${hotel.website ? `<br>${labels.website} ${esc(hotel.website)}` : ''}
+                </div>
+                <div class="tax-invoice">${labels.taxInvoice}</div>
+              </div>
+            </div>
+
+            <div class="invoice-details">
+              <table class="details-table">
+                <tr>
+                  <td><strong>${labels.invoiceNo}</strong> ${esc(invoiceNumber)}</td>
+                  <td><strong>${labels.date}</strong> ${esc(meta.generatedAt)}</td>
+                </tr>
+                <tr>
+                  <td><strong>${labels.guestName}</strong> ${esc(guest.name)}</td>
+                  <td><strong>${labels.folioRes}</strong> ${esc(reservation.folioNumber)} / ${esc(reservation.reservationNumber)}</td>
+                </tr>
+                <tr>
+                  <td><strong>${labels.company}</strong> ${esc(reservation.company)}</td>
+                  <td><strong>${labels.roomNo}</strong> ${esc(reservation.roomNumber)}</td>
+                </tr>
+                <tr>
+                  <td><strong>${labels.arrival}</strong> ${formatDate(reservation.arrivalDate)}</td>
+                  <td><strong>${labels.departure}</strong> ${formatDate(reservation.departureDate)}</td>
+                </tr>
+                <tr>
+                  <td><strong>${labels.pax}</strong> ${formatAmount(reservation.pax)}</td>
+                  <td><strong>${labels.nights}</strong> ${formatAmount(reservation.nights)}</td>
+                </tr>
+                <tr>
+                  <td><strong>${labels.nationality}</strong> ${esc(reservation.nationality)}</td>
+                  <td><strong>${labels.rateType}</strong> ${esc(reservation.rateType)}</td>
+                </tr>
+              </table>
+            </div>
+
+            <div class="charges-table">
+              <table class="header-table">
+                <thead>
+                  <tr>
+                    <th>${labels.colDetails}</th>
+                    <th>${labels.colCharges}</th>
+                    <th>${labels.colPayments}</th>
+                    <th>${labels.colBalance}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>${labels.accommodation}</td>
+                    <td>${formatAmount(charges)} ${esc(currency.code)}</td>
+                    <td>-</td>
+                    <td>-</td>
+                  </tr>
+                  <tr>
+                    <td>${labels.taxes}</td>
+                    <td>${formatAmount(taxes)} ${esc(currency.code)}</td>
+                    <td>-</td>
+                    <td>-</td>
+                  </tr>
+                  <tr>
+                    <td><strong>${labels.grandTotal}</strong></td>
+                    <td><strong>${formatAmount(total)} ${esc(currency.code)}</strong></td>
+                    <td>${formatAmount(reservation.totals.totalPayments)} ${esc(currency.code)}</td>
+                    <td>${formatAmount(reservation.totals.outstandingBalance)} ${esc(currency.code)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="bill-to">
+              <strong>${labels.billTo}:</strong> ${esc(guest.name)}
+              ${guest.address ? `<br>${labels.address}: ${esc(guest.address)}` : ''}
+              ${guest.email ? `<br>${esc(guest.email)}` : ''}
+              ${guest.phone ? `<br>${labels.phone} ${esc(guest.phone)}` : ''}
+            </div>
+
+            <div class="user-tracking">
+              <div>${labels.reservedBy} ${esc(reservation.reservedBy)}</div>
+              <div>${labels.checkedInBy} ${esc(reservation.checkedInBy)}</div>
+              <div>${labels.checkedOutBy} ${esc(reservation.checkedOutBy)}</div>
+            </div>
+
+            <div class="footer">
+              ${labels.noticeTitle}: ${labels.noticeBody}<br>
+              ${labels.printedBy}: ${esc(meta.printedBy)}<br>
+              ${labels.thanks}
+            </div>
+          </div>`
+      })
+      .join('')
+
+    return `<!DOCTYPE html>
+        <html lang="${labels.htmlLang}">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${labels.title} - ${esc(hotel.name)}</title>
+            <style>
+                * {
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }
+
+                @page {
+                    size: A4;
+                    margin: 10mm;
+                }
+
+                body {
+                    font-family: 'Times New Roman', serif;
+                    font-size: 12px;
+                    line-height: 1.4;
+                    color: #000;
+                    background: white;
+                    margin: 0;
+                    padding: 0;
+                }
+
+                .container {
+                    width: 100%;
+                    max-width: 800px;
+                    margin: 0 auto;
+                    border: 1px solid #000;
+                }
+
+                .header {
+                    text-align: center;
+                    padding: 15px;
+                    border-bottom: 1px solid #000;
+                    position: relative;
+                }
+
+                .hotel-info h1 {
+                    font-size: 16px;
+                    font-weight: bold;
+                    margin-bottom: 8px;
+                }
+
+                .hotel-details {
+                    font-size: 11px;
+                    margin-bottom: 15px;
+                }
+
+                .tax-invoice {
+                    font-size: 12px;
+                    font-weight: bold;
+                }
+
+                .registration-info {
+                    position: absolute;
+                    top: 15px;
+                    right: 15px;
+                    font-size: 10px;
+                    text-align: right;
+                }
+
+                .invoice-details {
+                    padding: 8px;
+                    border-bottom: 1px solid #000;
+                }
+
+                .details-table {
+                    width: 100%;
+                    font-size: 10px;
+                    border-collapse: collapse;
+                }
+
+                .details-table td {
+                    padding: 2px 5px;
+                    vertical-align: top;
+                }
+
+                .charges-table {
+                    border-bottom: 1px solid #000;
+                }
+
+                .totals-section {
+                    padding: 8px;
+                    border-bottom: 1px solid #000;
+                    text-align: center;
+                    font-size: 10px;
+                }
+
+                .totals-section .total-line {
+                    margin-bottom: 5px;
+                }
+
+                .amount-words {
+                    border-bottom: 1px solid #000;
+                }
+
+                .amount-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 10px;
+                }
+
+                .amount-table td {
+                    border: 1px solid #000;
+                    padding: 6px;
+                    vertical-align: top;
+                }
+
+                .bill-to {
+                    padding: 8px;
+                    font-size: 10px;
+                    border-bottom: 1px solid #000;
+                }
+
+                .footer {
+                    text-align: center;
+                    padding: 15px;
+                    font-size: 10px;
+                }
+
+                .user-tracking {
+                    padding: 8px;
+                    font-size: 10px;
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 10px;
+                    border-bottom: 1px solid #000;
+                }
+
+                .folio-notice {
+                    padding: 8px;
+                    font-size: 10px;
+                    font-weight: bold;
+                }
+
+                .page-info {
+                    text-align: right;
+                    padding: 5px;
+                    font-size: 10px;
+                }
+
+                .font-bold { font-weight: bold; }
+                .text-right { text-align: right; }
+                .text-center { text-align: center; }
+
+                .header-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    font-size: 10px;
+                }
+
+                .header-table th,
+                .header-table td {
+                    border: 1px solid #000;
+                    padding: 6px 8px;
+                    text-align: left;
+                }
+
+                .header-table th {
+                    font-weight: bold;
+                    background-color: #d3d3d3;
+                    text-align: center;
+                }
+
+                .header-table td {
+                    text-align: center;
+                }
+
+                .charges-table .header-table tbody tr td {
+                    border-left: none;
+                    border-right: none;
+                    border-bottom: none;
+                }
+
+                .charges-table .header-table tbody tr:last-child td {
+                    border-bottom: 1px solid #000;
+                }
+
+                .charges-table .header-table tbody tr td:first-child {
+                    border-left: 1px solid #000;
+                }
+
+                .charges-table .header-table tbody tr td:last-child {
+                    border-right: 1px solid #000;
+                }
+
+                .charges-table .header-table tbody tr {
+                    page-break-inside: avoid;
+                }
+
+                .charges-table .header-table thead {
+                    display: table-header-group;
+                }
+
+                @media print {
+                    body {
+                        margin: 0 !important;
+                        padding: 0 !important;
+                    }
+
+                    .container {
+                        page-break-after: always;
+                        margin: 0 auto !important;
+                        max-width: 100% !important;
+                        width: 100% !important;
+                    }
+
+                    .container:last-child {
+                        page-break-after: auto;
+                    }
+                }
+            </style>
+        </head>
+        <body>
+            ${invoiceContent}
+        </body>
+        </html>`
+  }
+
   /**
    * Convert number to words (simplifie
    * d implementation)
