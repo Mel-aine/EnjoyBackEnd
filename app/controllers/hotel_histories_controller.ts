@@ -4,6 +4,7 @@ import Hotel from '#models/hotel'
 import { DateTime } from 'luxon'
 
 type HistoryFilters = {
+  historyId?: string | number
   searchText?: string
   roomType?: string
   rateType?: string
@@ -25,6 +26,7 @@ export default class HotelHistoriesController {
    */
   private buildHistoryQuery(hotelId: string | number, filters: HistoryFilters) {
     const {
+      historyId,
       searchText,
       roomType,
       rateType,
@@ -40,6 +42,11 @@ export default class HotelHistoriesController {
     } = filters
 
     const query = HotelHistory.query().where('hotel_id', hotelId)
+
+    // Filtre sur une ligne précise de l'historique (impression d'une seule facture)
+    if (historyId) {
+      query.where('id', historyId)
+    }
 
     // Filtre par texte de recherche (nom du client ou numéro de réservation)
     if (searchText) {
@@ -244,24 +251,31 @@ export default class HotelHistoriesController {
       const body = request.all()
 
       const hotelId = body.hotelId || auth.user?.hotelId
-      const guestName = String(body.guestName || body.searchText || '').trim()
+      const requestedGuestName = String(body.guestName || body.searchText || '').trim()
+      const historyId = body.historyId ? Number(body.historyId) : undefined
+      const reservationNumber = body.reservationNumber
+        ? String(body.reservationNumber).trim()
+        : undefined
 
       if (!hotelId) {
         return response.badRequest({ message: 'hotelId est requis' })
       }
 
-      if (!guestName) {
+      // On imprime soit toutes les factures d'un client, soit une seule réservation
+      if (!requestedGuestName && !historyId && !reservationNumber) {
         return response.badRequest({
-          message: 'Le nom du client est requis pour imprimer la facture',
+          message: 'Le nom du client ou une réservation est requis pour imprimer la facture',
         })
       }
 
       const filters: HistoryFilters = {
-        searchText: guestName,
+        historyId,
+        // Une facture ciblée est retrouvée par son id : le nom ne sert qu'à l'affichage
+        searchText: historyId ? undefined : requestedGuestName || undefined,
         roomType: body.roomType || undefined,
         rateType: body.rateType || undefined,
         reservationType: body.reservationType || undefined,
-        reservationNumber: body.reservationNumber || undefined,
+        reservationNumber,
         source: body.source || undefined,
         showBookings: body.showBookings || undefined,
         dateType: body.dateType || undefined,
@@ -280,9 +294,13 @@ export default class HotelHistoriesController {
       if (histories.length === 0) {
         return response.notFound({
           success: false,
-          message: `Aucune réservation trouvée pour le client "${guestName}"`,
+          message: requestedGuestName
+            ? `Aucune réservation trouvée pour le client "${requestedGuestName}"`
+            : `Aucune réservation trouvée pour la réservation "${historyId || reservationNumber}"`,
         })
       }
+
+      const guestName = requestedGuestName || histories[0].guestName || '-'
 
       const hotel = await Hotel.find(hotelId)
       if (!hotel) {
