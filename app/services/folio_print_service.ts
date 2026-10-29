@@ -454,7 +454,9 @@ export class FolioPrintService {
         website: reservation.hotel.website || '',
         logo: reservation.hotel.logoUrl || undefined,
         registrationNumber: reservation.hotel.registrationNo1,
-        rcNumber: reservation.hotel.registrationNo2
+        rcNumber: reservation.hotel.registrationNo2,
+        notices: reservation.hotel.notices || {}
+
       }
       const transactions: Array<Record<string, any>> = []
       let balance = 0
