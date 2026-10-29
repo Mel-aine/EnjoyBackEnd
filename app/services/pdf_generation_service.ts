@@ -1,5 +1,6 @@
 // @ts-ignore
 import htmlPdf from 'html-pdf-node'
+import sanitizeHtml from 'sanitize-html'
 import { FolioPrintData } from '#services/folio_print_service'
 
 export interface PdfOptions {
@@ -1660,6 +1661,86 @@ static async generateSuitaHotelPdfFrench(
 /**
  * Generate HTML template for Suita Hotel
  */
+
+    /** Nettoie le HTML d'une policy. Retourne '' si vide. */
+    private static cleanPolicyHtml(value?: string | null): string {
+      if (!value || !value.trim()) return ''
+
+      // Ancien texte brut -> HTML
+      let html = value
+      if (!/<[a-z][\s\S]*>/i.test(html)) {
+        html = this.escapeHtml(html).replace(/\n/g, '<br>')
+      }
+
+      const color = [/^#[0-9a-f]{3,8}$/i, /^rgba?\([\d\s,.%]+\)$/i]
+
+      const clean = sanitizeHtml(html, {
+        allowedTags: [
+          'p', 'br', 'div', 'span', 'strong', 'b', 'em', 'i', 'u', 's', 'strike',
+          'sub', 'sup', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'blockquote', 'pre',
+          'a', 'hr', 'table', 'thead', 'tbody', 'tr', 'td', 'th',
+        ],
+        allowedAttributes: {
+          '*': ['style'],
+          a: ['href'],
+          td: ['colspan', 'rowspan'],
+          th: ['colspan', 'rowspan'],
+        },
+        allowedSchemes: ['http', 'https', 'mailto'],
+        allowedStyles: {
+          '*': {
+            'font-weight': [/^(bold|normal|[1-9]00)$/],
+            'font-style': [/^(italic|normal)$/],
+            'text-decoration': [/^(underline|line-through|none)(\s+(underline|line-through))*$/],
+            'text-decoration-line': [/^(underline|line-through|none)$/],
+            'text-align': [/^(left|right|center|justify)$/],
+            'color': color,
+            'background-color': color,
+            'font-size': [/^[a-z-]+$/, /^\d+(\.\d+)?(px|pt|em|rem|%)$/],
+            'border': [/^[\w\s#.,()%-]+$/],
+            'padding': [/^[\d\s.pxemrt%]+$/],
+            'border-collapse': [/^(collapse|separate)$/],
+            'width': [/^\d+(\.\d+)?(px|%)$/],
+          },
+        },
+      })
+
+      // S'il ne reste aucun texte (ex: <div><br></div>) -> vide
+      const textOnly = clean.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
+      return textOnly ? clean : ''
+    }
+
+    /** Bloc "Folio NOTICE + policies" : retourne '' si aucune policy */
+    private static generatePoliciesHtml(hotel: any, french: boolean): string {
+      const notices = hotel?.notices ?? {}
+
+      const blocks = [
+        {
+          title: french ? "Politique de l'hôtel" : 'Hotel Policy',
+          html: this.cleanPolicyHtml(notices.folio),
+        },
+        {
+          title: french ? "Politique d'annulation" : 'Cancellation Policy',
+          html: this.cleanPolicyHtml(notices.cancellation),
+        },
+      ].filter((b) => b.html)
+
+      if (blocks.length === 0) return ''
+
+      return `
+        <div class="policies">
+          ${blocks
+            .map(
+              (b) => `
+            <div class="policy-block">
+              <div class="policy-title">${b.title}</div>
+              <div class="policy-text">${b.html}</div>
+            </div>`
+            )
+            .join('')}
+        </div>`
+    }
+
     private static formatCurrency(amount: number): string {
         if (amount === null || amount === undefined || isNaN(amount)) {
             return '0'
@@ -1726,15 +1807,6 @@ static async generateSuitaHotelPdfFrench(
             `).join('');
         };
 
-        const generatePolicyBlock = (title: string, text?: string | null) => {
-            if (!text || !text.trim()) return ''
-            return `
-                <div class="policy-block">
-                    <div class="policy-title">${title}</div>
-                    <div class="policy-text">${this.escapeHtml(text.trim())}</div>
-                </div>
-            `
-        }
 
         // Fonction pour générer une page complète
        const generatePage = (pageTransactions: any[], pageNumber: number) => {
@@ -1800,13 +1872,7 @@ static async generateSuitaHotelPdfFrench(
                 </div>
 
                 <!-- Folio Notice + Policies -->
-                <div class="folio-notice">
-                    <p>Folio NOTICE</p>
-                </div>
-                <div class="policies">
-                    ${generatePolicyBlock('Hotel Policy', hotel.hotelPolicy)}
-                    ${generatePolicyBlock('Cancellation Policy', hotel.cancellationPolicy)}
-                </div>
+                    ${this.generatePoliciesHtml(hotel, false)}
             `
 
             const continuedNotice = `
@@ -1986,31 +2052,25 @@ static async generateSuitaHotelPdfFrench(
                     border-top: 1px solid #000;
                 }
 
-                .policies {
-                    padding: 0 8px 8px;
-                }
-
-                .policy-block {
-                    margin-bottom: 8px;
-                    page-break-inside: avoid;
-                }
-
+                .policies { padding: 8px  8px 8px; border-top: 1px solid #000; }
+                .policy-block { margin-bottom: 10px; page-break-inside: avoid; }
                 .policy-title {
-                    font-size: 9px;
-                    font-weight: bold;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                    margin-bottom: 2px;
+                    font-size: 11px; font-weight: bold; text-transform: uppercase;
+                    letter-spacing: 0.5px; margin-bottom: 3px;
                 }
+                .policy-text { font-size: 10px; line-height: 1.4; text-align: justify; color: #222; }
+                .policy-text p { margin: 0 0 4px; }
+                .policy-text h1, .policy-text h2, .policy-text h3 { font-size: 11px; font-weight: bold; margin: 4px 0; }
+                .policy-text pre { font-size: 10px; white-space: pre-wrap; }
+                .policy-text table { width: 100%; border-collapse: collapse; font-size: 10px; }
 
-                .policy-text {
-                    font-size: 9px;
-                    line-height: 1.35;
-                    text-align: justify;
-                    white-space: pre-line;
-                    color: #222;
-                }
-
+                .policy-text div { margin: 0; }
+                .policy-text ul, .policy-text ol { margin: 0 0 2px; padding-left: 14px; }
+                .policy-text ul { list-style: disc; }
+                .policy-text ol { list-style: decimal; }
+                .policy-text h1, .policy-text h2, .policy-text h3 { font-size: 9px; font-weight: bold; margin: 2px 0; }
+                .policy-text blockquote { margin: 0 0 2px 8px; font-style: italic; }
+                .policy-text td, .policy-text th { border: 1px solid #999; padding: 1px 3px; }
                 .continued-notice {
                     padding: 8px;
                     font-size: 10px;
@@ -2430,10 +2490,7 @@ static async generateSuitaHotelPdfFrench(
                 </div>
 
                 <!-- Avis Folio -->
-                <div class="folio-notice">
-                    <p>AVIS FOLIO</p>
-                    <p>Ceci est un document de facturation officiel</p>
-                </div>
+                    ${this.generatePoliciesHtml(hotel, true)}
 
                 <!-- Informations de Suivi Utilisateur -->
                 <div class="user-tracking">
@@ -2629,6 +2686,25 @@ static async generateSuitaHotelPdfFrench(
                     font-size: 10px;
                     font-weight: bold;
                 }
+
+                .policies { padding: 8px 8px 8px; border-top: 1px solid #000; }
+                .policy-block { margin-bottom: 10px; page-break-inside: avoid; }
+                .policy-title {
+                    font-size: 11px; font-weight: bold; text-transform: uppercase;
+                    letter-spacing: 0.5px; margin-bottom: 3px;
+                }
+                .policy-text { font-size: 10px; line-height: 1.4; text-align: justify; color: #222; }
+                .policy-text p { margin: 0 0 4px; }
+                .policy-text h1, .policy-text h2, .policy-text h3 { font-size: 11px; font-weight: bold; margin: 4px 0; }
+                .policy-text pre { font-size: 10px; white-space: pre-wrap; }
+                .policy-text table { width: 100%; border-collapse: collapse; font-size: 10px; }
+                .policy-text div { margin: 0; }
+                .policy-text ul, .policy-text ol { margin: 0 0 2px; padding-left: 14px; }
+                .policy-text ul { list-style: disc; }
+                .policy-text ol { list-style: decimal; }
+                .policy-text h1, .policy-text h2, .policy-text h3 { font-size: 9px; font-weight: bold; margin: 2px 0; }
+                .policy-text blockquote { margin: 0 0 2px 8px; font-style: italic; }
+                .policy-text td, .policy-text th { border: 1px solid #999; padding: 1px 3px; }
 
                 .page-info {
                     text-align: right;

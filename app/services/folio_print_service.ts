@@ -455,8 +455,7 @@ export class FolioPrintService {
         logo: reservation.hotel.logoUrl || undefined,
         registrationNumber: reservation.hotel.registrationNo1,
         rcNumber: reservation.hotel.registrationNo2,
-        hotelPolicy: reservation.hotel.hotelPolicy || '',
-        cancellationPolicy: reservation.hotel.cancellationPolicy || ''
+        notices: reservation.hotel.notices || {}
 
       }
       const transactions: Array<Record<string, any>> = []
