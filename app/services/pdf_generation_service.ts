@@ -150,11 +150,11 @@ export default class PdfGenerationService {
           top: '30mm',
           right: '10mm',
           bottom: '10mm',
-          left: '10mm'
+          left: '10mm',
         },
         displayHeaderFooter: false,
         printBackground: true,
-        ...options
+        ...options,
       }
 
       // Generate HTML content
@@ -168,7 +168,7 @@ export default class PdfGenerationService {
           top: defaultOptions.margin.top,
           right: defaultOptions.margin.right,
           bottom: defaultOptions.margin.bottom,
-          left: defaultOptions.margin.left
+          left: defaultOptions.margin.left,
         },
         displayHeaderFooter: defaultOptions.displayHeaderFooter,
         headerTemplate: options.headerTemplate,
@@ -176,7 +176,7 @@ export default class PdfGenerationService {
         type: 'pdf',
         quality: '75',
         renderDelay: 500,
-        zoomFactor: 1
+        zoomFactor: 1,
       }
 
       const file = { content: htmlContent }
@@ -192,10 +192,7 @@ export default class PdfGenerationService {
   /**
    * Generate PDF from HTML content
    */
-  static async generatePdfFromHtml(
-    htmlContent: string,
-    options: PdfOptions = {}
-  ): Promise<Buffer> {
+  static async generatePdfFromHtml(htmlContent: string, options: PdfOptions = {}): Promise<Buffer> {
     try {
       // Default PDF options
       const defaultOptions = {
@@ -205,11 +202,11 @@ export default class PdfGenerationService {
           top: '10mm',
           right: '10mm',
           bottom: '10mm',
-          left: '10mm'
+          left: '10mm',
         },
         displayHeaderFooter: true,
         printBackground: true,
-        ...options
+        ...options,
       }
 
       // PDF generation options for html-pdf-node (puppeteer-style)
@@ -220,7 +217,7 @@ export default class PdfGenerationService {
           top: defaultOptions.margin.top,
           right: defaultOptions.margin.right,
           bottom: defaultOptions.margin.bottom,
-          left: defaultOptions.margin.left
+          left: defaultOptions.margin.left,
         },
         displayHeaderFooter: defaultOptions.displayHeaderFooter,
         headerTemplate: options.headerTemplate,
@@ -229,7 +226,7 @@ export default class PdfGenerationService {
         type: 'pdf',
         quality: '75',
         renderDelay: 500,
-        zoomFactor: 1
+        zoomFactor: 1,
       }
 
       const file = { content: htmlContent }
@@ -258,11 +255,11 @@ export default class PdfGenerationService {
           top: '10mm',
           right: '10mm',
           bottom: '10mm',
-          left: '10mm'
+          left: '10mm',
         },
         displayHeaderFooter: false,
         printBackground: true,
-        ...options
+        ...options,
       }
 
       // Generate HTML content
@@ -276,12 +273,12 @@ export default class PdfGenerationService {
           top: defaultOptions.margin.top,
           right: defaultOptions.margin.right,
           bottom: defaultOptions.margin.bottom,
-          left: defaultOptions.margin.left
+          left: defaultOptions.margin.left,
         },
         type: 'pdf',
         quality: '75',
         renderDelay: 500,
-        zoomFactor: 1
+        zoomFactor: 1,
       }
 
       const file = { content: htmlContent }
@@ -293,70 +290,63 @@ export default class PdfGenerationService {
       throw new Error(`Failed to generate booking PDF: ${message}`)
     }
   }
-    /**
+  /**
    * Generate PDF from booking confirmation data
    */
-    static async generateBookingPdfFrench(
-        folioPrintData: FolioPrintData,
-        options: PdfOptions = {}
-      ): Promise<Buffer> {
-        try {
-          // Default PDF options
-          const defaultOptions = {
-            format: 'A4',
-            orientation: 'portrait',
-            margin: {
-              top: '10mm',
-              right: '10mm',
-              bottom: '10mm',
-              left: '10mm'
-            },
-            displayHeaderFooter: false,
-            printBackground: true,
-            ...options
-          }
-
-          // Generate HTML content
-          const htmlContent = this.generateBookingHtmlTemplateFrench(folioPrintData)
-
-          // PDF generation options for html-pdf-node
-          const pdfOptions = {
-            format: defaultOptions.format,
-            orientation: defaultOptions.orientation,
-            border: {
-              top: defaultOptions.margin.top,
-              right: defaultOptions.margin.right,
-              bottom: defaultOptions.margin.bottom,
-              left: defaultOptions.margin.left
-            },
-            type: 'pdf',
-            quality: '75',
-            renderDelay: 500,
-            zoomFactor: 1
-          }
-
-          const file = { content: htmlContent }
-          const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
-
-          return pdfBuffer
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error)
-          throw new Error(`Failed to generate booking PDF: ${message}`)
-        }
+  static async generateBookingPdfFrench(
+    folioPrintData: FolioPrintData,
+    options: PdfOptions = {}
+  ): Promise<Buffer> {
+    try {
+      // Default PDF options
+      const defaultOptions = {
+        format: 'A4',
+        orientation: 'portrait',
+        margin: {
+          top: '10mm',
+          right: '10mm',
+          bottom: '10mm',
+          left: '10mm',
+        },
+        displayHeaderFooter: false,
+        printBackground: true,
+        ...options,
       }
+
+      // Generate HTML content
+      const htmlContent = this.generateBookingHtmlTemplateFrench(folioPrintData)
+
+      // PDF generation options for html-pdf-node
+      const pdfOptions = {
+        format: defaultOptions.format,
+        orientation: defaultOptions.orientation,
+        border: {
+          top: defaultOptions.margin.top,
+          right: defaultOptions.margin.right,
+          bottom: defaultOptions.margin.bottom,
+          left: defaultOptions.margin.left,
+        },
+        type: 'pdf',
+        quality: '75',
+        renderDelay: 500,
+        zoomFactor: 1,
+      }
+
+      const file = { content: htmlContent }
+      const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
+
+      return pdfBuffer
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      throw new Error(`Failed to generate booking PDF: ${message}`)
+    }
+  }
 
   /**
    * Generate HTML template from folio print data
    */
   private static generateHtmlTemplate(data: FolioPrintData): string {
-    const {
-      hotel,
-      reservation,
-      folio,
-      transactions,
-      totals,
-      currency,
-    } = data
+    const { hotel, reservation, folio, transactions, totals, currency } = data
 
     // Convert amount to words (simplified version)
     const amountInWords = this.numberToWords(totals.totalChargesWithTaxes)
@@ -593,7 +583,7 @@ export default class PdfGenerationService {
                             <span class="label">Invoice No.</span> : ${folio.folioNumber || 'N/A'}
                         </td>
                         <td style="width: 25%;">
-                            <span class="label">Date:</span> ${new Date().toLocaleString('en-GB', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'})}
+                            <span class="label">Date:</span> ${new Date().toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </td>
                     </tr>
                 </table>
@@ -650,7 +640,10 @@ export default class PdfGenerationService {
                     </tr>
                 </thead>
                 <tbody>
-                    ${transactions?.map((transaction, index) => `
+                    ${
+                      transactions
+                        ?.map(
+                          (transaction, index) => `
                     <tr>
                         <td>${new Date(transaction.date).toLocaleDateString('fr-FR')}</td>
                         <td>${transaction.transactionNumber || ''}</td>
@@ -659,7 +652,11 @@ export default class PdfGenerationService {
                         <td class="text-right">${(transaction.amount || 0) < 0 ? this.formatAmount(Math.abs(transaction.amount)) : '0'}</td>
                         <td class="text-right">${this.formatAmount(transaction.balance)}</td>
                     </tr>
-                    `).join('') || '<tr><td colspan="6" class="text-center">No transactions found</td></tr>'}
+                    `
+                        )
+                        .join('') ||
+                      '<tr><td colspan="6" class="text-center">No transactions found</td></tr>'
+                    }
                 </tbody>
             </table>
 
@@ -736,7 +733,7 @@ export default class PdfGenerationService {
                 <table>
                     <tr>
                         <td style="width: 33%;"><span class="label">Reserved By :</span> ${reservation.reservedBy || 'N/A'}</td>
-                        <td style="width: 33%;"><span class="label">Checked In By :</span> ${reservation.checkedInBy  || 'N/A'}</td>
+                        <td style="width: 33%;"><span class="label">Checked In By :</span> ${reservation.checkedInBy || 'N/A'}</td>
                         <td style="width: 33%;"><span class="label">Checked Out By :</span> ${reservation.checkedOutBy || 'N/A'}</td>
                         <td style="width: 33%;"><span class="label">Modified by :</span> ${reservation.modifier || 'N/A'}</td>
                     </tr>
@@ -754,19 +751,13 @@ export default class PdfGenerationService {
     </html>`
   }
 
-    /**
-     * Generate HTML template for booking confirmation
-     */
-    private static generateBookingHtmlTemplate(data: FolioPrintData): string {
-        const {
-        hotel,
-        reservation,
-        totals,
-        currency,
-        billingAddress
-        } = data
+  /**
+   * Generate HTML template for booking confirmation
+   */
+  private static generateBookingHtmlTemplate(data: FolioPrintData): string {
+    const { hotel, reservation, totals, currency, billingAddress } = data
 
-        return `
+    return `
     <!DOCTYPE html>
     <html lang="fr">
     <head>
@@ -1016,7 +1007,7 @@ export default class PdfGenerationService {
                     <div>Check Out Date : ${this.formatDate(reservation.departDate!.toString())}</div>
                     <div>Nights : ${reservation.numberOfNights}</div>
                     <div>Arrival Time : ${reservation.checkInTime}</div>
-                    <div>Special Request : ${reservation.specialRequests??''}</div>
+                    <div>Special Request : ${reservation.specialRequests ?? ''}</div>
                 </div>
             </div>
 
@@ -1044,14 +1035,18 @@ export default class PdfGenerationService {
                     </div>
                     </div></div>
                     <div class="data-grid room-details-grid">
-                    ${reservation.reservationRooms?.map(room => `
+                    ${reservation.reservationRooms
+                      ?.map(
+                        (room) => `
                     <div class="grid-row">
-                        <div class="grid-cell"><strong>${room.roomType?.roomTypeName} ${room.roomRates?.rateType?.rateTypeName ??''}</strong></div>
+                        <div class="grid-cell"><strong>${room.roomType?.roomTypeName} ${room.roomRates?.rateType?.rateTypeName ?? ''}</strong></div>
                         <div class="grid-cell">${room.adults || 1} Adults, ${room.children || 0} Children</div>
                         <div class="grid-cell">1</div>
                         <div class="grid-cell">none</div>
                         <div class="grid-cell">none</div>
-                    </div>`).join('') }
+                    </div>`
+                      )
+                      .join('')}
                 </div>
             </div>
 
@@ -1134,8 +1129,8 @@ export default class PdfGenerationService {
                     <h3 class="font-bold">Hotel Policy</h3>
                     <p>${hotel.hotelPolicy}</p>
                     <div/>
-                    <p><strong>Hotel Check in Time:</strong> ${hotel.checkinReservationSettings?.timeSettings?.checkInTime??'12:00'}</p>
-                    <p><strong>Hotel Check out Time:</strong> ${hotel.checkinReservationSettings?.timeSettings?.checkOutTime??'12:00'}</p>
+                    <p><strong>Hotel Check in Time:</strong> ${hotel.checkinReservationSettings?.timeSettings?.checkInTime ?? '12:00'}</p>
+                    <p><strong>Hotel Check out Time:</strong> ${hotel.checkinReservationSettings?.timeSettings?.checkOutTime ?? '12:00'}</p>
                     <div class="mt-4 font-bold text-center">
                         <em>This email has been sent from an automated system - please do not reply to it.</em>
                     </div>
@@ -1153,21 +1148,15 @@ export default class PdfGenerationService {
     </body>
     </html>
         `
-    }
+  }
 
-    /**
-     * Generate HTML template for booking confirmation
-     */
-    private static generateBookingHtmlTemplateFrench(data: FolioPrintData): string {
-        const {
-            hotel,
-            reservation,
-            totals,
-            currency,
-            billingAddress
-        } = data
+  /**
+   * Generate HTML template for booking confirmation
+   */
+  private static generateBookingHtmlTemplateFrench(data: FolioPrintData): string {
+    const { hotel, reservation, totals, currency, billingAddress } = data
 
-        return `
+    return `
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -1417,7 +1406,7 @@ export default class PdfGenerationService {
                 <div>Date de départ : ${this.formatDate(reservation.departDate!.toString())}</div>
                 <div>Nuits : ${reservation.numberOfNights}</div>
                 <div>Heure d'arrivée : ${reservation.checkInTime}</div>
-                <div>Demandes spéciales : ${reservation.specialRequests??''}</div>
+                <div>Demandes spéciales : ${reservation.specialRequests ?? ''}</div>
             </div>
         </div>
 
@@ -1445,14 +1434,18 @@ export default class PdfGenerationService {
                 </div>
                 </div></div>
                   <div class="data-grid room-details-grid">
-                ${reservation.reservationRooms?.map(room => `
+                ${reservation.reservationRooms
+                  ?.map(
+                    (room) => `
                 <div class="grid-row">
-                    <div class="grid-cell"><strong>${room.roomType?.roomTypeName} ${room.roomRates?.rateType?.rateTypeName ??''}</strong></div>
+                    <div class="grid-cell"><strong>${room.roomType?.roomTypeName} ${room.roomRates?.rateType?.rateTypeName ?? ''}</strong></div>
                     <div class="grid-cell">${room.adults || 1} Adultes, ${room.children || 0} Enfants</div>
                     <div class="grid-cell">1</div>
                     <div class="grid-cell">aucun</div>
                     <div class="grid-cell">aucune</div>
-                </div>`).join('') }
+                </div>`
+                  )
+                  .join('')}
             </div>
         </div>
 
@@ -1535,8 +1528,8 @@ export default class PdfGenerationService {
                 <h3 class="font-bold">Politique de l'Hôtel</h3>
                 <p>${hotel.hotelPolicy}</p>
                 <div/>
-                <p><strong>Heure d'arrivée à l'hôtel:</strong> ${hotel.checkinReservationSettings?.timeSettings?.checkInTime??'12:00'}</p>
-                 <p><strong>Heure de départ de l'hôtel:</strong> ${hotel.checkinReservationSettings?.timeSettings?.checkOutTime??'12:00'}</p>
+                <p><strong>Heure d'arrivée à l'hôtel:</strong> ${hotel.checkinReservationSettings?.timeSettings?.checkInTime ?? '12:00'}</p>
+                 <p><strong>Heure de départ de l'hôtel:</strong> ${hotel.checkinReservationSettings?.timeSettings?.checkOutTime ?? '12:00'}</p>
                 <div class="mt-4 font-bold text-center">
                     <em>Cet email a été envoyé depuis un système automatisé - merci de ne pas y répondre.</em>
                 </div>
@@ -1554,61 +1547,11 @@ export default class PdfGenerationService {
 </body>
 </html>
         `
-    }
-/**
- * Generate PDF using the Suita Hotel template
- */
-static async generateSuitaHotelPdf(
-  folioPrintData: FolioPrintData,
-  options: PdfOptions = {}
-): Promise<Buffer> {
-  try {
-    // Default PDF options
-    const defaultOptions = {
-      format: 'A4',
-      orientation: 'portrait',
-      margin: {
-        top: '10mm',
-        right: '10mm',
-        bottom: '10mm',
-        left: '10mm'
-      },
-      displayHeaderFooter: false,
-      printBackground: true,
-      ...options
-    }
-
-    // Generate HTML content
-    const htmlContent = this.generateHotelHtmlTemplate(folioPrintData)
-
-    // PDF generation options for html-pdf-node (puppeteer-style)
-    const pdfOptions = {
-      format: defaultOptions.format,
-      orientation: defaultOptions.orientation,
-      margin: {
-        top: defaultOptions.margin.top,
-        right: defaultOptions.margin.right,
-        bottom: defaultOptions.margin.bottom,
-        left: defaultOptions.margin.left
-      },
-      displayHeaderFooter: defaultOptions.displayHeaderFooter,
-      headerTemplate: options.headerTemplate,
-      footerTemplate: options.footerTemplate,
-      type: 'pdf',
-      quality: '75',
-      renderDelay: 500,
-      zoomFactor: 1
-    }
-
-    const file = { content: htmlContent }
-    const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
-
-    return pdfBuffer
-  } catch (error) {
-    throw new Error(`Failed to generate Suita Hotel PDF: ${error.message}`)
   }
-}
-static async generateSuitaHotelPdfFrench(
+  /**
+   * Generate PDF using the Suita Hotel template
+   */
+  static async generateSuitaHotelPdf(
     folioPrintData: FolioPrintData,
     options: PdfOptions = {}
   ): Promise<Buffer> {
@@ -1621,11 +1564,61 @@ static async generateSuitaHotelPdfFrench(
           top: '10mm',
           right: '10mm',
           bottom: '10mm',
-          left: '10mm'
+          left: '10mm',
         },
         displayHeaderFooter: false,
         printBackground: true,
-        ...options
+        ...options,
+      }
+
+      // Generate HTML content
+      const htmlContent = this.generateHotelHtmlTemplate(folioPrintData)
+
+      // PDF generation options for html-pdf-node (puppeteer-style)
+      const pdfOptions = {
+        format: defaultOptions.format,
+        orientation: defaultOptions.orientation,
+        margin: {
+          top: defaultOptions.margin.top,
+          right: defaultOptions.margin.right,
+          bottom: defaultOptions.margin.bottom,
+          left: defaultOptions.margin.left,
+        },
+        displayHeaderFooter: defaultOptions.displayHeaderFooter,
+        headerTemplate: options.headerTemplate,
+        footerTemplate: options.footerTemplate,
+        type: 'pdf',
+        quality: '75',
+        renderDelay: 500,
+        zoomFactor: 1,
+      }
+
+      const file = { content: htmlContent }
+      const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
+
+      return pdfBuffer
+    } catch (error) {
+      throw new Error(`Failed to generate Suita Hotel PDF: ${error.message}`)
+    }
+  }
+  static async generateSuitaHotelPdfFrench(
+    folioPrintData: FolioPrintData,
+    options: PdfOptions = {}
+  ): Promise<Buffer> {
+    try {
+      // Default PDF options
+      const defaultOptions = {
+        format: 'A4',
+        orientation: 'portrait',
+        margin: {
+          top: '10mm',
+          right: '10mm',
+          bottom: '10mm',
+          left: '10mm',
+        },
+        displayHeaderFooter: false,
+        printBackground: true,
+        ...options,
       }
 
       // Generate HTML content
@@ -1639,7 +1632,7 @@ static async generateSuitaHotelPdfFrench(
           top: defaultOptions.margin.top,
           right: defaultOptions.margin.right,
           bottom: defaultOptions.margin.bottom,
-          left: defaultOptions.margin.left
+          left: defaultOptions.margin.left,
         },
         displayHeaderFooter: defaultOptions.displayHeaderFooter,
         headerTemplate: options.headerTemplate,
@@ -1647,7 +1640,7 @@ static async generateSuitaHotelPdfFrench(
         type: 'pdf',
         quality: '75',
         renderDelay: 500,
-        zoomFactor: 1
+        zoomFactor: 1,
       }
 
       const file = { content: htmlContent }
@@ -1658,76 +1651,105 @@ static async generateSuitaHotelPdfFrench(
       throw new Error(`Failed to generate Suita Hotel PDF: ${error.message}`)
     }
   }
-/**
- * Generate HTML template for Suita Hotel
- */
+  /**
+   * Generate HTML template for Suita Hotel
+   */
 
-    /** Nettoie le HTML d'une policy. Retourne '' si vide. */
-    private static cleanPolicyHtml(value?: string | null): string {
-      if (!value || !value.trim()) return ''
+  /** Nettoie le HTML d'une policy. Retourne '' si vide. */
+  private static cleanPolicyHtml(value?: string | null): string {
+    if (!value || !value.trim()) return ''
 
-      // Ancien texte brut -> HTML
-      let html = value
-      if (!/<[a-z][\s\S]*>/i.test(html)) {
-        html = this.escapeHtml(html).replace(/\n/g, '<br>')
-      }
-
-      const color = [/^#[0-9a-f]{3,8}$/i, /^rgba?\([\d\s,.%]+\)$/i]
-
-      const clean = sanitizeHtml(html, {
-        allowedTags: [
-          'p', 'br', 'div', 'span', 'strong', 'b', 'em', 'i', 'u', 's', 'strike',
-          'sub', 'sup', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'blockquote', 'pre',
-          'a', 'hr', 'table', 'thead', 'tbody', 'tr', 'td', 'th',
-        ],
-        allowedAttributes: {
-          '*': ['style'],
-          a: ['href'],
-          td: ['colspan', 'rowspan'],
-          th: ['colspan', 'rowspan'],
-        },
-        allowedSchemes: ['http', 'https', 'mailto'],
-        allowedStyles: {
-          '*': {
-            'font-weight': [/^(bold|normal|[1-9]00)$/],
-            'font-style': [/^(italic|normal)$/],
-            'text-decoration': [/^(underline|line-through|none)(\s+(underline|line-through))*$/],
-            'text-decoration-line': [/^(underline|line-through|none)$/],
-            'text-align': [/^(left|right|center|justify)$/],
-            'color': color,
-            'background-color': color,
-            'font-size': [/^[a-z-]+$/, /^\d+(\.\d+)?(px|pt|em|rem|%)$/],
-            'border': [/^[\w\s#.,()%-]+$/],
-            'padding': [/^[\d\s.pxemrt%]+$/],
-            'border-collapse': [/^(collapse|separate)$/],
-            'width': [/^\d+(\.\d+)?(px|%)$/],
-          },
-        },
-      })
-
-      // S'il ne reste aucun texte (ex: <div><br></div>) -> vide
-      const textOnly = clean.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
-      return textOnly ? clean : ''
+    // Ancien texte brut -> HTML
+    let html = value
+    if (!/<[a-z][\s\S]*>/i.test(html)) {
+      html = this.escapeHtml(html).replace(/\n/g, '<br>')
     }
 
-    /** Bloc "Folio NOTICE + policies" : retourne '' si aucune policy */
-    private static generatePoliciesHtml(hotel: any, french: boolean): string {
-      const notices = hotel?.notices ?? {}
+    const color = [/^#[0-9a-f]{3,8}$/i, /^rgba?\([\d\s,.%]+\)$/i]
 
-      const blocks = [
-        {
-          title: french ? "Politique de l'hôtel" : 'Hotel Policy',
-          html: this.cleanPolicyHtml(notices.folio),
+    const clean = sanitizeHtml(html, {
+      allowedTags: [
+        'p',
+        'br',
+        'div',
+        'span',
+        'strong',
+        'b',
+        'em',
+        'i',
+        'u',
+        's',
+        'strike',
+        'sub',
+        'sup',
+        'ul',
+        'ol',
+        'li',
+        'h1',
+        'h2',
+        'h3',
+        'blockquote',
+        'pre',
+        'a',
+        'hr',
+        'table',
+        'thead',
+        'tbody',
+        'tr',
+        'td',
+        'th',
+      ],
+      allowedAttributes: {
+        '*': ['style'],
+        'a': ['href'],
+        'td': ['colspan', 'rowspan'],
+        'th': ['colspan', 'rowspan'],
+      },
+      allowedSchemes: ['http', 'https', 'mailto'],
+      allowedStyles: {
+        '*': {
+          'font-weight': [/^(bold|normal|[1-9]00)$/],
+          'font-style': [/^(italic|normal)$/],
+          'text-decoration': [/^(underline|line-through|none)(\s+(underline|line-through))*$/],
+          'text-decoration-line': [/^(underline|line-through|none)$/],
+          'text-align': [/^(left|right|center|justify)$/],
+          'color': color,
+          'background-color': color,
+          'font-size': [/^[a-z-]+$/, /^\d+(\.\d+)?(px|pt|em|rem|%)$/],
+          'border': [/^[\w\s#.,()%-]+$/],
+          'padding': [/^[\d\s.pxemrt%]+$/],
+          'border-collapse': [/^(collapse|separate)$/],
+          'width': [/^\d+(\.\d+)?(px|%)$/],
         },
-        {
-          title: french ? "Politique d'annulation" : 'Cancellation Policy',
-          html: this.cleanPolicyHtml(notices.cancellation),
-        },
-      ].filter((b) => b.html)
+      },
+    })
 
-      if (blocks.length === 0) return ''
+    // S'il ne reste aucun texte (ex: <div><br></div>) -> vide
+    const textOnly = clean
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .trim()
+    return textOnly ? clean : ''
+  }
 
-      return `
+  /** Bloc "Folio NOTICE + policies" : retourne '' si aucune policy */
+  private static generatePoliciesHtml(hotel: any, french: boolean): string {
+    const notices = hotel?.notices ?? {}
+
+    const blocks = [
+      {
+        title: french ? "Politique de l'hôtel" : 'Hotel Policy',
+        html: this.cleanPolicyHtml(notices.folio),
+      },
+      {
+        title: french ? "Politique d'annulation" : 'Cancellation Policy',
+        html: this.cleanPolicyHtml(notices.cancellation),
+      },
+    ].filter((b) => b.html)
+
+    if (blocks.length === 0) return ''
+
+    return `
         <div class="policies">
           ${blocks
             .map(
@@ -1739,63 +1761,157 @@ static async generateSuitaHotelPdfFrench(
             )
             .join('')}
         </div>`
+  }
+
+  private static formatCurrency(amount: number): string {
+    if (amount === null || amount === undefined || isNaN(amount)) {
+      return '0'
+    }
+    return `${Math.round(Number(amount)).toLocaleString('fr-FR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })}`
+  }
+
+  private static escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+  }
+
+
+  private static generateHotelHtmlTemplate(
+    data: FolioPrintData | HotelInvoiceTemplateData,
+    detailed = false
+  ): string {
+    const { hotel, reservation, folio, transactions, totals, currency } =
+      data as HotelInvoiceTemplateData
+
+    // Convert amount to words
+    const amountInWords = this.numberToWords(totals.totalChargesWithTaxes)
+
+    // Fiscal parameters + room/tax summary (detailed invoice only)
+    const extras = detailed ? this.buildDetailedInvoiceExtras(data, false) : null
+
+    // Policies (page dédiée si présentes)
+    const policiesHtml = this.generatePoliciesHtml(hotel, false)
+    const hasPoliciesPage = !!policiesHtml
+
+    // Pagination: diviser les transactions en groupes de 10
+    // const TRANSACTIONS_PER_PAGE = 10;
+    // const transactionPages: any[][] = [];
+
+    // if (transactions && transactions.length > 0) {
+    //     for (let i = 0; i < transactions.length; i += TRANSACTIONS_PER_PAGE) {
+    //         transactionPages.push(transactions.slice(i, i + TRANSACTIONS_PER_PAGE));
+    //     }
+    // } else {
+    //     transactionPages.push([]);
+    // }
+    const FULL_PAGE_ROWS = 15
+    const LAST_PAGE_ROWS = extras ? 4 : 8
+    const transactionPages: any[][] = []
+    const remaining = [...(transactions ?? [])]
+
+    if (remaining.length === 0) {
+      transactionPages.push([])
+    } else {
+      while (remaining.length > LAST_PAGE_ROWS) {
+        transactionPages.push(remaining.splice(0, Math.min(FULL_PAGE_ROWS, remaining.length - 1)))
+      }
+      transactionPages.push(remaining)
     }
 
-    private static formatCurrency(amount: number): string {
-        if (amount === null || amount === undefined || isNaN(amount)) {
-            return '0'
-        }
-        return `${Math.round(Number(amount)).toLocaleString('fr-FR', {
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        })}`
-    }
+    const totalPages = transactionPages.length + (hasPoliciesPage ? 1 : 0)
 
-    private static escapeHtml(value: string): string {
-        return value
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;')
-    }
+    // Header + détails facture (répétés sur chaque page, y compris la dernière)
+    const headerHtml = `
+            <!-- Header -->
+            <div class="header">
+                <div class="registration-info">
+                    <p>M${hotel.registrationNumber || 'N/A'}</p>
+                    <p>RC${hotel.rcNumber || 'N/A'}</p>
+                </div>
+                <div class="hotel-info">
+                    <h1>${hotel.name}</h1>
+                    <div class="hotel-details">
+                        <p>${hotel.address}</p>
+                        <p>Phone: ${hotel.phone}; Email: ${hotel.email}</p>
+                        <p>URL: ${hotel.website || 'N/A'}</p>
+                    </div>
+                    <div class="tax-invoice">Tax Invoice</div>
+                </div>
+            </div>
 
-    private static generateHotelHtmlTemplate(
-      data: FolioPrintData | HotelInvoiceTemplateData
-    ): string {
-        const {
-            hotel,
-            reservation,
-            folio,
-            transactions,
-            totals,
-            currency,
-        } = data as HotelInvoiceTemplateData
+            <!-- Invoice Details -->
+            <div class="invoice-details">
+                <table class="details-table">
+                    <tr>
+                        <td style="width: 50%;">
+                            <div><span class="font-bold">Folio No./Res No.</span> ${folio.folioNumber} / ${folio.reservationNumber || 'N/A'}</div>
+                            <div><span class="font-bold">Guest Name</span> : ${reservation.guest?.displayName || 'N/A'}</div>
+                            <div><span class="font-bold">Company Name</span> : ${reservation.company || 'N/A'}</div>
+                        </td>
+                        <td style="width: 25%;"></td>
+                        <td style="width: 25%;">
+                            <div><span class="font-bold">Date:</span> ${new Date().toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+                            ${extras ? extras.fiscal : ''}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        `
+    const headerHtmlLastPage = `
+            <!-- Header -->
+            <div class="header">
+                <div class="registration-info">
+                    <p>M${hotel.registrationNumber || 'N/A'}</p>
+                    <p>RC${hotel.rcNumber || 'N/A'}</p>
+                </div>
+                <div class="hotel-info">
+                    <h1>${hotel.name}</h1>
+                    <div class="hotel-details">
+                        <p>${hotel.address}</p>
+                        <p>Phone: ${hotel.phone}; Email: ${hotel.email}</p>
+                        <p>URL: ${hotel.website || 'N/A'}</p>
+                    </div>
+                    <div class="tax-invoice">Tax Invoice</div>
+                </div>
+            </div>
 
-        // Convert amount to words
-        const amountInWords = this.numberToWords(totals.totalChargesWithTaxes)
+        `
 
-        // Pagination: diviser les transactions en groupes de 10
-        const TRANSACTIONS_PER_PAGE = 10;
-        const transactionPages: any[][] = [];
+    // Suivi utilisateur + footer
+    const trackingFooterHtml = `
+            <!-- User Tracking Information -->
+            <div class="user-tracking">
+                <div><span class="font-bold">Reserved By:</span> ${reservation.reservedBy || 'N/A'}</div>
+                <div><span class="font-bold">Checked In By:</span> ${reservation.checkedInBy || 'N/A'}</div>
+                <div><span class="font-bold">Checked Out By:</span> ${reservation.checkedOutBy || 'N/A'}</div>
+            </div>
 
-        if (transactions && transactions.length > 0) {
-            for (let i = 0; i < transactions.length; i += TRANSACTIONS_PER_PAGE) {
-                transactionPages.push(transactions.slice(i, i + TRANSACTIONS_PER_PAGE));
-            }
-        } else {
-            transactionPages.push([]);
-        }
+            <!-- Footer -->
+            <div class="footer">
+                <p>Thank you for your stay with us. Please visit us again.</p>
+            </div>
+        `
 
-        const totalPages = transactionPages.length;
+    const continuedNotice = `
+            <div class="continued-notice">Continued on next page...</div>
+        `
 
-        // Fonction pour générer les lignes de transactions d'une page
-        const generateTransactionRows = (pageTransactions: any[]) => {
-            if (pageTransactions.length === 0) {
-                return '<tr><td colspan="6" class="text-center">No transactions found</td></tr>';
-            }
+    // Fonction pour générer les lignes de transactions d'une page
+    const generateTransactionRows = (pageTransactions: any[]) => {
+      if (pageTransactions.length === 0) {
+        return '<tr><td colspan="6" class="text-center">No transactions found</td></tr>'
+      }
 
-            return pageTransactions.map((transaction, index) => `
+      return pageTransactions
+        .map(
+          (transaction, index) => `
                 <tr>
                     <td>${new Date(transaction.date).toLocaleDateString('fr-FR')}</td>
                     <td>${(transaction.amount || 0) < 0 ? transaction.transactionNumber || '' : ''}</td>
@@ -1804,15 +1920,16 @@ static async generateSuitaHotelPdfFrench(
                     <td class="text-right">${(transaction.amount || 0) < 0 ? this.formatCurrency(Math.abs(transaction.amount)) : this.formatCurrency(0)}</td>
                     <td class="text-right">${this.formatCurrency(transaction.balance)}</td>
                 </tr>
-            `).join('');
-        };
+            `
+        )
+        .join('')
+    }
 
+    // Page de transactions
+    const generatePage = (pageTransactions: any[], pageNumber: number) => {
+      const isLastTxPage = pageNumber === transactionPages.length
 
-        // Fonction pour générer une page complète
-       const generatePage = (pageTransactions: any[], pageNumber: number) => {
-            const isLastPage = pageNumber === totalPages
-
-            const lastPageContent = `
+      const lastTxContent = `
                 <!-- Totals Section -->
                 <div class="totals-section">
                     <div class="total-line">
@@ -1859,61 +1976,14 @@ static async generateSuitaHotelPdfFrench(
                     </div>
                 </div>
 
-                <!-- User Tracking Information -->
-                <div class="user-tracking">
-                    <div><span class="font-bold">Reserved By:</span> ${reservation.reservedBy || 'N/A'}</div>
-                    <div><span class="font-bold">Checked In By:</span> ${reservation.checkedInBy || 'N/A'}</div>
-                    <div><span class="font-bold">Checked Out By:</span> ${reservation.checkedOutBy || 'N/A'}</div>
-                </div>
+                ${extras ? extras.summary : ''}
 
-                <!-- Footer -->
-                <div class="footer">
-                    <p>Thank you for your stay with us. Please visit us again.</p>
-                </div>
-
-                <!-- Folio Notice + Policies -->
-                    ${this.generatePoliciesHtml(hotel, false)}
+                ${hasPoliciesPage ? continuedNotice : trackingFooterHtml}
             `
 
-            const continuedNotice = `
-                <div class="continued-notice">Continued on next page...</div>
-            `
-
-            return `
+      return `
                 <div class="container" style="${pageNumber > 1 ? 'page-break-before: always;' : ''}">
-                    <!-- Header -->
-                    <div class="header">
-                        <div class="registration-info">
-                            <p>M${hotel.registrationNumber || 'N/A'}</p>
-                            <p>RC${hotel.rcNumber || 'N/A'}</p>
-                        </div>
-                        <div class="hotel-info">
-                            <h1>${hotel.name}</h1>
-                            <div class="hotel-details">
-                                <p>${hotel.address}</p>
-                                <p>Phone: ${hotel.phone}; Email: ${hotel.email}</p>
-                                <p>URL: ${hotel.website || 'N/A'}</p>
-                            </div>
-                            <div class="tax-invoice">Tax Invoice</div>
-                        </div>
-                    </div>
-
-                    <!-- Invoice Details -->
-                    <div class="invoice-details">
-                        <table class="details-table">
-                            <tr>
-                                <td style="width: 50%;">
-                                    <div><span class="font-bold">Folio No./Res No.</span> ${folio.folioNumber} / ${folio.reservationNumber || 'N/A'}</div>
-                                    <div><span class="font-bold">Guest Name</span> : ${reservation.guest?.displayName || 'N/A'}</div>
-                                    <div><span class="font-bold">Company Name</span> : ${reservation.company || 'N/A'}</div>
-                                </td>
-                                <td style="width: 25%;"></td>
-                                <td style="width: 25%;">
-                                    <div><span class="font-bold">Date:</span> ${new Date().toLocaleString('en-GB', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'})}</div>
-                                </td>
-                            </tr>
-                        </table>
-                    </div>
+                    ${headerHtml}
 
                     <!-- Guest Details & Stay Details - Combined Table -->
                     <table class="header-table">
@@ -1977,7 +2047,7 @@ static async generateSuitaHotelPdfFrench(
                         </table>
                     </div>
 
-                    ${isLastPage ? lastPageContent : continuedNotice}
+                    ${isLastTxPage ? lastTxContent : continuedNotice}
 
                     <!-- Page Info -->
                     <div class="page-info">
@@ -1985,14 +2055,32 @@ static async generateSuitaHotelPdfFrench(
                     </div>
                 </div>
             `
-        }
+    }
 
-        // Générer toutes les pages
-        const allPages = transactionPages.map((pageTransactions, index) =>
-            generatePage(pageTransactions, index + 1)
-        ).join('');
+    // Dernière page : header + policies
+    const generatePoliciesPage = (pageNumber: number) => `
+            <div class="container" style="page-break-before: always;">
+                ${headerHtmlLastPage}
 
-        return `<!DOCTYPE html>
+                <!-- Folio Notice + Policies -->
+                ${policiesHtml}
+
+                ${trackingFooterHtml}
+
+                <!-- Page Info -->
+                <div class="page-info">
+                    Page ${pageNumber} of ${totalPages}
+                </div>
+            </div>
+        `
+
+    // Générer toutes les pages
+    const allPages =
+      transactionPages
+        .map((pageTransactions, index) => generatePage(pageTransactions, index + 1))
+        .join('') + (hasPoliciesPage ? generatePoliciesPage(totalPages) : '')
+
+    return `<!DOCTYPE html>
         <html lang="fr">
         <head>
             <meta charset="UTF-8">
@@ -2045,20 +2133,13 @@ static async generateSuitaHotelPdfFrench(
                     margin-bottom: 15px;
                 }
 
-               .folio-notice {
-                    padding: 8px 8px 4px;
-                    font-size: 10px;
-                    font-weight: bold;
-                    border-top: 1px solid #000;
-                }
-
-                .policies { padding: 8px  8px 8px; border-top: 1px solid #000; }
+                .policies { padding: 8px  8px 8px; border-top: 1px solid #000; border-bottom: 1px solid #000; }
                 .policy-block { margin-bottom: 10px; page-break-inside: avoid; }
                 .policy-title {
                     font-size: 11px; font-weight: bold; text-transform: uppercase;
                     letter-spacing: 0.5px; margin-bottom: 3px;
                 }
-                .policy-text { font-size: 10px; line-height: 1.4; text-align: justify; color: #222; }
+                .policy-text { font-size: 12px; line-height: 1.4; text-align: justify; color: #222; }
                 .policy-text p { margin: 0 0 4px; }
                 .policy-text h1, .policy-text h2, .policy-text h3 { font-size: 11px; font-weight: bold; margin: 4px 0; }
                 .policy-text pre { font-size: 10px; white-space: pre-wrap; }
@@ -2107,27 +2188,6 @@ static async generateSuitaHotelPdfFrench(
                     vertical-align: top;
                 }
 
-                .guest-details, .stay-details {
-                    border-bottom: 1px solid #000;
-                }
-
-                .data-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    font-size: 10px;
-                }
-
-                .data-table th, .data-table td {
-                    border: 1px solid #000;
-                    padding: 4px 6px;
-                    text-align: left;
-                }
-
-                .data-table th {
-                    font-weight: bold;
-                    background-color: #d3d3d3;
-                }
-
                 .charges-table {
                     border-bottom: 1px solid #000;
                 }
@@ -2169,11 +2229,6 @@ static async generateSuitaHotelPdfFrench(
                     border-bottom: 1px solid #000;
                 }
 
-                .signature {
-                    text-align: right;
-                    margin-top: 15px;
-                }
-
                 .footer {
                     text-align: center;
                     padding: 15px;
@@ -2189,24 +2244,10 @@ static async generateSuitaHotelPdfFrench(
                     border-bottom: 1px solid #000;
                 }
 
-                .folio-notice {
-                    padding: 8px;
-                    font-size: 10px;
-                    font-weight: bold;
-                }
-
                 .page-info {
                     text-align: right;
                     padding: 5px;
                     font-size: 10px;
-                }
-
-                .url {
-                    padding: 5px;
-                    font-size: 10px;
-                    text-align: center;
-                    color: #666;
-                    border-top: 1px solid #000;
                 }
 
                 .font-bold { font-weight: bold; }
@@ -2290,43 +2331,143 @@ static async generateSuitaHotelPdfFrench(
             ${allPages}
         </body>
         </html>`
+  }
+
+  private static generateHotelHtmlTemplateFrench(
+    data: FolioPrintData | HotelInvoiceTemplateData,
+    detailed = false
+  ): string {
+    const { hotel, reservation, folio, transactions, totals, currency } =
+      data as HotelInvoiceTemplateData
+
+    // Convertir le montant en lettres
+    const amountInWords = this.numberToWords(totals.totalChargesWithTaxes)
+
+    // Paramètres fiscaux + récapitulatif chambres/taxes (facture détaillée uniquement)
+    const extras = detailed ? this.buildDetailedInvoiceExtras(data, true) : null
+
+    // Policies (page dédiée si présentes)
+    const policiesHtml = this.generatePoliciesHtml(hotel, true)
+    const hasPoliciesPage = !!policiesHtml
+
+    // Pagination : diviser les transactions en groupes de 10
+    // const TRANSACTIONS_PER_PAGE = 10;
+    // const transactionPages: any[][] = [];
+
+    // if (transactions && transactions.length > 0) {
+    //     for (let i = 0; i < transactions.length; i += TRANSACTIONS_PER_PAGE) {
+    //         transactionPages.push(transactions.slice(i, i + TRANSACTIONS_PER_PAGE));
+    //     }
+    // } else {
+    //     transactionPages.push([]);
+    // }
+    const FULL_PAGE_ROWS = 15
+    const LAST_PAGE_ROWS = extras ? 4 : 8
+    const transactionPages: any[][] = []
+    const remaining = [...(transactions ?? [])]
+
+    if (remaining.length === 0) {
+      transactionPages.push([])
+    } else {
+      while (remaining.length > LAST_PAGE_ROWS) {
+        transactionPages.push(remaining.splice(0, Math.min(FULL_PAGE_ROWS, remaining.length - 1)))
+      }
+      transactionPages.push(remaining)
     }
-    private static generateHotelHtmlTemplateFrench(
-      data: FolioPrintData | HotelInvoiceTemplateData
-    ): string {
-        const {
-            hotel,
-            reservation,
-            folio,
-            transactions,
-            totals,
-            currency,
-        } = data as HotelInvoiceTemplateData;
 
-        // Convertir le montant en lettres
-        const amountInWords = this.numberToWords(totals.totalChargesWithTaxes);
+    const totalPages = transactionPages.length + (hasPoliciesPage ? 1 : 0)
 
-        // Pagination : diviser les transactions en groupes de 10
-        const TRANSACTIONS_PER_PAGE = 10;
-        const transactionPages: any[][] = [];
+    // En-tête + détails facture (répétés sur chaque page, y compris la dernière)
+    const headerHtml = `
+            <!-- En-tête -->
+            <div class="header">
+                <div class="registration-info">
+                    <p>M${hotel.registrationNumber || 'N/A'}</p>
+                    <p>RC${hotel.rcNumber || 'N/A'}</p>
+                </div>
+                <div class="hotel-info">
+                    <h1>${hotel.name}</h1>
+                    <div class="hotel-details">
+                        <p>${hotel.address}</p>
+                        <p>Téléphone: ${hotel.phone}; Email: ${hotel.email}</p>
+                        <p>Site web: ${hotel.website || 'N/A'}</p>
+                    </div>
+                    <div class="tax-invoice">Facture Fiscale</div>
+                </div>
+            </div>
 
-        if (transactions && transactions.length > 0) {
-            for (let i = 0; i < transactions.length; i += TRANSACTIONS_PER_PAGE) {
-                transactionPages.push(transactions.slice(i, i + TRANSACTIONS_PER_PAGE));
-            }
-        } else {
-            transactionPages.push([]);
-        }
+            <!-- Détails de la facture -->
+            <div class="invoice-details">
+                <table class="details-table">
+                    <tr>
+                        <td style="width: 50%;">
+                            <div><span class="font-bold">N° Folio / N° Réservation</span> ${folio.folioNumber} / ${folio.reservationNumber || 'N/A'}</div>
+                            <div><span class="font-bold">Nom du Client</span> : ${reservation.guest?.displayName || 'N/A'}</div>
+                            <div><span class="font-bold">Nom de l'Entreprise</span> : ${reservation.company || 'N/A'}</div>
+                        </td>
+                        <td style="width: 25%;"></td>
+                        <td style="width: 25%;">
+                            <div><span class="font-bold">Date:</span> ${new Date().toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+                            ${extras ? extras.fiscal : ''}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        `
 
-        const totalPages = transactionPages.length;
+    const headerHtmlLastPage = `
+            <!-- En-tête -->
+            <div class="header">
+                <div class="registration-info">
+                    <p>M${hotel.registrationNumber || 'N/A'}</p>
+                    <p>RC${hotel.rcNumber || 'N/A'}</p>
+                </div>
+                <div class="hotel-info">
+                    <h1>${hotel.name}</h1>
+                    <div class="hotel-details">
+                        <p>${hotel.address}</p>
+                        <p>Téléphone: ${hotel.phone}; Email: ${hotel.email}</p>
+                        <p>Site web: ${hotel.website || 'N/A'}</p>
+                    </div>
+                    <div class="tax-invoice">Facture Fiscale</div>
+                </div>
+            </div>
+        `
 
-        // Fonction pour générer les lignes de transactions d'une page
-        const generateTransactionRows = (pageTransactions: any[]) => {
-            if (pageTransactions.length === 0) {
-                return '<tr><td colspan="6" class="text-center">Aucune transaction trouvée</td></tr>';
-            }
+    // Suivi utilisateur + pied de page
+    const trackingFooterHtml = `
+            <!-- Informations de Suivi Utilisateur -->
+            <div class="user-tracking">
+                <div>
+                    <span class="font-bold">Réservé Par:</span> ${reservation.reservedBy || 'N/A'}
+                </div>
+                <div>
+                    <span class="font-bold">Check-in Par:</span> ${reservation.checkedInBy || 'N/A'}
+                </div>
+                <div>
+                    <span class="font-bold">Check-out Par:</span> ${reservation.checkedOutBy || 'N/A'}
+                </div>
+            </div>
 
-            return pageTransactions.map((transaction, index) => `
+            <!-- Pied de page -->
+            <div class="footer">
+                <p>Merci pour votre séjour parmi nous. Au plaisir de vous revoir.</p>
+            </div>
+        `
+
+    const continuedNotice = `
+            <div class="continued-notice">Suite à la page suivante...</div>
+        `
+
+    // Fonction pour générer les lignes de transactions d'une page
+    const generateTransactionRows = (pageTransactions: any[]) => {
+      if (pageTransactions.length === 0) {
+        return '<tr><td colspan="6" class="text-center">Aucune transaction trouvée</td></tr>'
+      }
+
+      return pageTransactions
+        .map(
+          (transaction, index) => `
                 <tr>
                     <td>${new Date(transaction.date).toLocaleDateString('fr-FR')}</td>
                     <td>${(transaction.amount || 0) < 0 ? transaction.transactionNumber || '' : ''}</td>
@@ -2335,109 +2476,16 @@ static async generateSuitaHotelPdfFrench(
                     <td class="text-right">${(transaction.amount || 0) < 0 ? this.formatCurrency(Math.abs(transaction.amount)) : this.formatCurrency(0)}</td>
                     <td class="text-right">${this.formatCurrency(transaction.balance)}</td>
                 </tr>
-            `).join('');
-        };
+            `
+        )
+        .join('')
+    }
 
-        // Fonction pour générer une page complète
-        const generatePage = (pageTransactions: any[], pageNumber: number) => `
-            <div class="container" style="${pageNumber > 1 ? 'page-break-before: always;' : ''}">
-                <!-- En-tête -->
-                <div class="header">
-                    <div class="registration-info">
-                        <p>M${hotel.registrationNumber || 'N/A'}</p>
-                        <p>RC${hotel.rcNumber || 'N/A'}</p>
-                    </div>
-                    <div class="hotel-info">
-                        <h1>${hotel.name}</h1>
-                        <div class="hotel-details">
-                            <p>${hotel.address}</p>
-                            <p>Téléphone: ${hotel.phone}; Email: ${hotel.email}</p>
-                            <p>Site web: ${hotel.website || 'N/A'}</p>
-                        </div>
-                        <div class="tax-invoice">Facture Fiscale</div>
-                    </div>
-                </div>
+    // Page de transactions
+    const generatePage = (pageTransactions: any[], pageNumber: number) => {
+      const isLastTxPage = pageNumber === transactionPages.length
 
-                <!-- Détails de la facture -->
-                <div class="invoice-details">
-                    <table class="details-table">
-                        <tr>
-                            <td style="width: 50%;">
-                                <div><span class="font-bold">N° Folio / N° Réservation</span> ${folio.folioNumber} / ${folio.reservationNumber || 'N/A'}</div>
-                                <div><span class="font-bold">Nom du Client</span> : ${reservation.guest?.displayName || 'N/A'}</div>
-                                <div><span class="font-bold">Nom de l'Entreprise</span> : ${reservation.company || 'N/A'}</div>
-                            </td>
-                            <td style="width: 25%;">
-                            </td>
-                            <td style="width: 25%;">
-                                <div><span class="font-bold">Date:</span> ${new Date().toLocaleString('fr-FR', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'})}</div>
-                            </td>
-                        </tr>
-                    </table>
-                </div>
-
-                <!-- Détails du Client & Détails du Séjour - Tableau combiné -->
-                <table class="header-table">
-                    <colgroup>
-                        <col style="width: 10%;">
-                        <col style="width: 10%;">
-                        <col style="width: 10%;">
-                        <col style="width: 10%;">
-                        <col style="width: 24%;">
-                        <col style="width: 18%;">
-                        <col style="width: 18%;">
-                    </colgroup>
-                    <tr>
-                        <th colspan="2">Nationalité</th>
-                        <th>Nombre de Personnes</th>
-                        <th colspan="2">Adultes / Enfants</th>
-                        <th>N° Carte G.R.</th>
-                        <th colspan="2" style="border:none; border-bottom: none; border-top: none">N° Chambre</th>
-                    </tr>
-                    <tr>
-                        <td colspan="2"></td>
-                        <td style="border:none;">${reservation.adults + reservation.children || 1}</td>
-                        <td colspan="2">${reservation.adults || 1} / ${reservation.children || 0}</td>
-                        <td>${reservation.guest?.guestCode || 'N/A'}</td>
-                        <td colspan="2" style="border:none; border-bottom: none; text-align:center;">${reservation.roomNumber || 'N/A'}</td>
-                    </tr>
-                    <tr>
-                        <th colspan="2">Date d'Arrivée</th>
-                        <td>${new Date(reservation.checkInDate).toLocaleDateString('fr-FR')}</td>
-                        <th colspan="2">Date de Départ</th>
-                        <td>${new Date(reservation.checkOutDate).toLocaleDateString('fr-FR')}</td>
-                        <th>Tarif</th>
-                        <td>${this.formatCurrency(reservation.tariff || 0)}</td>
-                    </tr>
-                    <tr>
-                        <th colspan="2">Heure d'Arrivée</th>
-                        <td>${reservation.checkInTime}</td>
-                        <th colspan="2">Heure de Départ</th>
-                        <td>${reservation.checkOutTime}</td>
-                        <th>Type de Tarif</th>
-                        <td>${reservation.rateType}</td>
-                    </tr>
-                </table>
-
-                <!-- Tableau des Charges -->
-                <div class="charges-table">
-                    <table class="header-table">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <th>Réf. N°</th>
-                                <th>Détails</th>
-                                <th>Charges</th>
-                                <th>Paiements</th>
-                                <th>Solde</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${generateTransactionRows(pageTransactions)}
-                        </tbody>
-                    </table>
-                </div>
-
+      const lastTxContent = `
                 <!-- Section Totaux -->
                 <div class="totals-section">
                     <div class="total-line">
@@ -2484,40 +2532,111 @@ static async generateSuitaHotelPdfFrench(
                     </div>
                 </div>
 
-                <!-- Pied de page -->
-                <div class="footer">
-                    <p>Merci pour votre séjour parmi nous. Au plaisir de vous revoir.</p>
-                </div>
+                ${extras ? extras.summary : ''}
 
-                <!-- Avis Folio -->
-                    ${this.generatePoliciesHtml(hotel, true)}
+                ${hasPoliciesPage ? continuedNotice : trackingFooterHtml}
+            `
 
-                <!-- Informations de Suivi Utilisateur -->
-                <div class="user-tracking">
-                    <div>
-                        <span class="font-bold">Réservé Par:</span> ${reservation.reservedBy || 'N/A'}
+      return `
+                <div class="container" style="${pageNumber > 1 ? 'page-break-before: always;' : ''}">
+                    ${headerHtml}
+
+                    <!-- Détails du Client & Détails du Séjour - Tableau combiné -->
+                    <table class="header-table">
+                        <colgroup>
+                            <col style="width: 10%;">
+                            <col style="width: 10%;">
+                            <col style="width: 10%;">
+                            <col style="width: 10%;">
+                            <col style="width: 24%;">
+                            <col style="width: 18%;">
+                            <col style="width: 18%;">
+                        </colgroup>
+                        <tr>
+                            <th colspan="2">Nationalité</th>
+                            <th>Nombre de Personnes</th>
+                            <th colspan="2">Adultes / Enfants</th>
+                            <th>N° Carte G.R.</th>
+                            <th colspan="2" style="border:none; border-bottom: none; border-top: none">N° Chambre</th>
+                        </tr>
+                        <tr>
+                            <td colspan="2"></td>
+                            <td style="border:none;">${reservation.adults + reservation.children || 1}</td>
+                            <td colspan="2">${reservation.adults || 1} / ${reservation.children || 0}</td>
+                            <td>${reservation.guest?.guestCode || 'N/A'}</td>
+                            <td colspan="2" style="border:none; border-bottom: none; text-align:center;">${reservation.roomNumber || 'N/A'}</td>
+                        </tr>
+                        <tr>
+                            <th colspan="2">Date d'Arrivée</th>
+                            <td>${new Date(reservation.checkInDate).toLocaleDateString('fr-FR')}</td>
+                            <th colspan="2">Date de Départ</th>
+                            <td>${new Date(reservation.checkOutDate).toLocaleDateString('fr-FR')}</td>
+                            <th>Tarif</th>
+                            <td>${this.formatCurrency(reservation.tariff || 0)}</td>
+                        </tr>
+                        <tr>
+                            <th colspan="2">Heure d'Arrivée</th>
+                            <td>${reservation.checkInTime}</td>
+                            <th colspan="2">Heure de Départ</th>
+                            <td>${reservation.checkOutTime}</td>
+                            <th>Type de Tarif</th>
+                            <td>${reservation.rateType}</td>
+                        </tr>
+                    </table>
+
+                    <!-- Tableau des Charges -->
+                    <div class="charges-table">
+                        <table class="header-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Réf. N°</th>
+                                    <th>Détails</th>
+                                    <th>Charges</th>
+                                    <th>Paiements</th>
+                                    <th>Solde</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${generateTransactionRows(pageTransactions)}
+                            </tbody>
+                        </table>
                     </div>
-                    <div>
-                        <span class="font-bold">Check-in Par:</span> ${reservation.checkedInBy || 'N/A'}
-                    </div>
-                    <div>
-                        <span class="font-bold">Check-out Par:</span> ${reservation.checkedOutBy || 'N/A'}
+
+                    ${isLastTxPage ? lastTxContent : continuedNotice}
+
+                    <!-- Information de Page -->
+                    <div class="page-info">
+                        Page ${pageNumber} sur ${totalPages}
                     </div>
                 </div>
+            `
+    }
+
+    // Dernière page : en-tête + policies
+    const generatePoliciesPage = (pageNumber: number) => `
+            <div class="container" style="page-break-before: always;">
+                ${headerHtmlLastPage}
+
+                <!-- Avis Folio + Policies -->
+                ${policiesHtml}
+
+                ${trackingFooterHtml}
 
                 <!-- Information de Page -->
                 <div class="page-info">
                     Page ${pageNumber} sur ${totalPages}
                 </div>
             </div>
-        `;
+        `
 
-        // Générer toutes les pages
-        const allPages = transactionPages.map((pageTransactions, index) =>
-            generatePage(pageTransactions, index + 1)
-        ).join('');
+    // Générer toutes les pages
+    const allPages =
+      transactionPages
+        .map((pageTransactions, index) => generatePage(pageTransactions, index + 1))
+        .join('') + (hasPoliciesPage ? generatePoliciesPage(totalPages) : '')
 
-        return `<!DOCTYPE html>
+    return `<!DOCTYPE html>
         <html lang="fr">
         <head>
             <meta charset="UTF-8">
@@ -2599,27 +2718,6 @@ static async generateSuitaHotelPdfFrench(
                     vertical-align: top;
                 }
 
-                .guest-details, .stay-details {
-                    border-bottom: 1px solid #000;
-                }
-
-                .data-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    font-size: 10px;
-                }
-
-                .data-table th, .data-table td {
-                    border: 1px solid #000;
-                    padding: 4px 6px;
-                    text-align: left;
-                }
-
-                .data-table th {
-                    font-weight: bold;
-                    background-color: #d3d3d3;
-                }
-
                 .charges-table {
                     border-bottom: 1px solid #000;
                 }
@@ -2661,11 +2759,6 @@ static async generateSuitaHotelPdfFrench(
                     border-bottom: 1px solid #000;
                 }
 
-                .signature {
-                    text-align: right;
-                    margin-top: 15px;
-                }
-
                 .footer {
                     text-align: center;
                     padding: 15px;
@@ -2681,19 +2774,20 @@ static async generateSuitaHotelPdfFrench(
                     border-bottom: 1px solid #000;
                 }
 
-                .folio-notice {
+                .continued-notice {
                     padding: 8px;
                     font-size: 10px;
-                    font-weight: bold;
+                    font-style: italic;
+                    text-align: right;
                 }
 
-                .policies { padding: 8px 8px 8px; border-top: 1px solid #000; }
+                .policies { padding: 8px 8px 8px; border-top: 1px solid #000; border-bottom: 1px solid #000; }
                 .policy-block { margin-bottom: 10px; page-break-inside: avoid; }
                 .policy-title {
                     font-size: 11px; font-weight: bold; text-transform: uppercase;
                     letter-spacing: 0.5px; margin-bottom: 3px;
                 }
-                .policy-text { font-size: 10px; line-height: 1.4; text-align: justify; color: #222; }
+                .policy-text { font-size: 12px; line-height: 1.4; text-align: justify; color: #222; }
                 .policy-text p { margin: 0 0 4px; }
                 .policy-text h1, .policy-text h2, .policy-text h3 { font-size: 11px; font-weight: bold; margin: 4px 0; }
                 .policy-text pre { font-size: 10px; white-space: pre-wrap; }
@@ -2710,14 +2804,6 @@ static async generateSuitaHotelPdfFrench(
                     text-align: right;
                     padding: 5px;
                     font-size: 10px;
-                }
-
-                .url {
-                    padding: 5px;
-                    font-size: 10px;
-                    text-align: center;
-                    color: #666;
-                    border-top: 1px solid #000;
                 }
 
                 .font-bold { font-weight: bold; }
@@ -3460,6 +3546,202 @@ static async generateSuitaHotelPdfFrench(
   }
 
   /**
+   * Detailed (fiscal) invoice: same folio invoice plus fiscal parameters, room summary and tax breakdown.
+   */
+  static async generateDetailedHotelPdf(
+    folioPrintData: FolioPrintData,
+    options: PdfOptions = {}
+  ): Promise<Buffer> {
+    return this.renderDetailedHotelPdf(folioPrintData, options, false)
+  }
+
+  static async generateDetailedHotelPdfFrench(
+    folioPrintData: FolioPrintData,
+    options: PdfOptions = {}
+  ): Promise<Buffer> {
+    return this.renderDetailedHotelPdf(folioPrintData, options, true)
+  }
+
+  private static async renderDetailedHotelPdf(
+    folioPrintData: FolioPrintData,
+    options: PdfOptions,
+    french: boolean
+  ): Promise<Buffer> {
+    try {
+      const defaultOptions = {
+        format: 'A4',
+        orientation: 'portrait',
+        margin: {
+          top: '10mm',
+          right: '10mm',
+          bottom: '10mm',
+          left: '10mm',
+        },
+        displayHeaderFooter: false,
+        printBackground: true,
+        ...options,
+      }
+
+      const htmlContent = french
+        ? this.generateHotelHtmlTemplateFrench(folioPrintData, true)
+        : this.generateHotelHtmlTemplate(folioPrintData, true)
+
+      const pdfOptions = {
+        format: defaultOptions.format,
+        orientation: defaultOptions.orientation,
+        margin: {
+          top: defaultOptions.margin.top,
+          right: defaultOptions.margin.right,
+          bottom: defaultOptions.margin.bottom,
+          left: defaultOptions.margin.left,
+        },
+        displayHeaderFooter: defaultOptions.displayHeaderFooter,
+        headerTemplate: options.headerTemplate,
+        footerTemplate: options.footerTemplate,
+        type: 'pdf',
+        quality: '75',
+        renderDelay: 500,
+        zoomFactor: 1,
+      }
+
+      const file = { content: htmlContent }
+      return await htmlPdf.generatePdf(file, pdfOptions as any)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      throw new Error(`Failed to generate detailed hotel PDF: ${message}`)
+    }
+  }
+
+  /**
+   * Fiscal parameters and room/tax summary injected into the standard folio invoice.
+   */
+  private static buildDetailedInvoiceExtras(
+    data: FolioPrintData | HotelInvoiceTemplateData,
+    french: boolean
+  ): { fiscal: string; summary: string } {
+    const { reservation, totals } = data as any
+
+    const labels = french
+      ? {
+          fiscalParams: 'Paramètres Fiscaux',
+          vatRate: 'Taux TVA',
+          cityTax: 'Taxe Séjour / nuit',
+          roomType: 'Type de Chambre',
+          rooms: 'Nb Chambres',
+          nights: 'Nuitées',
+          rackRate: 'Prix Affiché (TTC)',
+          discountPerNight: 'Rabais / nuit',
+          grossTotal: 'Total Brut (TTC)',
+          discountTotal: 'Total Rabais',
+          netTotal: 'Grand Total Net (TTC)',
+          cityTaxTotal: 'Taxe de Séjour',
+          taxableBase: 'Base Imposable (TTC Soumis à TVA)',
+          amountHT: 'Montant Hors Taxes (HT)',
+          vatAmount: (rate: number) => `Montant de la TVA (${rate}%)`,
+          verification: 'Vérification Équilibre Comptable (HT + TVA + Taxe)',
+        }
+      : {
+          fiscalParams: 'Fiscal Parameters',
+          vatRate: 'VAT Rate',
+          cityTax: 'City Tax / night',
+          roomType: 'Room Type',
+          rooms: 'No. Rooms',
+          nights: 'Nights',
+          rackRate: 'Rack Rate (Incl. Tax)',
+          discountPerNight: 'Discount / night',
+          grossTotal: 'Gross Total (Incl. Tax)',
+          discountTotal: 'Total Discount',
+          netTotal: 'Grand Total Net (Incl. Tax)',
+          cityTaxTotal: 'City Tax',
+          taxableBase: 'Taxable Base (Incl. Tax, VAT applicable)',
+          amountHT: 'Amount Excl. Tax (HT)',
+          vatAmount: (rate: number) => `VAT Amount (${rate}%)`,
+          verification: 'Accounting Balance Check (HT + VAT + Tax)',
+        }
+
+    const summaryRows: any[] =
+      (data as any).roomSummary?.length > 0
+        ? (data as any).roomSummary
+        : [
+            {
+              roomTypeName: reservation.roomType || (french ? 'Chambre' : 'Room'),
+              rooms: 1,
+              nights: Number(reservation.numberOfNights || 1),
+              nightlyRate: Number(reservation.tariff || 0),
+              discountPerNight: 0,
+              grossTotal: Number(totals.totalChargesWithTaxes || 0),
+              discountTotal: Number(totals.totalDiscounts || 0),
+              netTotal: Number(totals.totalChargesWithTaxes || 0),
+            },
+          ]
+
+    const tax = (data as any).taxSummary || {}
+    const vatRate = Number(tax.vatRate ?? 0)
+    const cityTaxPerNight = Number(tax.cityTaxPerNight ?? 0)
+    const totalNights = Number(tax.totalNights ?? reservation.numberOfNights ?? 1)
+    const grandTotalNet = Number(tax.grandTotalNet ?? totals.totalChargesWithTaxes ?? 0)
+    const cityTaxTotal = Number(tax.cityTaxTotal ?? cityTaxPerNight * totalNights)
+    const taxableBase = Number(tax.taxableBase ?? Math.max(grandTotalNet - cityTaxTotal, 0))
+    const amountHT = Number(
+      tax.amountHT ?? (vatRate > 0 ? taxableBase / (1 + vatRate / 100) : taxableBase)
+    )
+    const vatAmount = Number(tax.vatAmount ?? taxableBase - amountHT)
+    const balanceVerification = Number(
+      tax.balanceVerification ?? amountHT + vatAmount + cityTaxTotal
+    )
+
+    const roomRows = summaryRows
+      .map(
+        (room: any) => `
+        <tr>
+          <td>${room.roomTypeName || ''}</td>
+          <td>${room.rooms || 0}</td>
+          <td>${room.nights || 0}</td>
+          <td class="text-right">${this.formatCurrency(room.nightlyRate)}</td>
+          <td class="text-right">${this.formatCurrency(room.discountPerNight)}</td>
+          <td class="text-right">${this.formatCurrency(room.grossTotal)}</td>
+          <td class="text-right">${this.formatCurrency(room.discountTotal)}</td>
+          <td class="text-right">${this.formatCurrency(room.netTotal)}</td>
+        </tr>`
+      )
+      .join('')
+
+    const fiscal = `
+      <div style="margin-top: 6px; display: inline-block; text-align: left; font-size: 9px; line-height: 1.3;">
+        <div class="font-bold">${labels.fiscalParams}</div>
+        <div style="padding-left: 14px;">${labels.vatRate} : ${vatRate}%</div>
+        <div style="padding-left: 14px;">${labels.cityTax} : ${this.formatCurrency(cityTaxPerNight)}</div>
+      </div>`
+
+    const summary = `
+      <table class="header-table">
+        <thead>
+          <tr>
+            <th>${labels.roomType}</th>
+            <th>${labels.rooms}</th>
+            <th>${labels.nights}</th>
+            <th>${labels.rackRate}</th>
+            <th>${labels.discountPerNight}</th>
+            <th>${labels.grossTotal}</th>
+            <th>${labels.discountTotal}</th>
+            <th>${labels.netTotal}</th>
+          </tr>
+        </thead>
+        <tbody>${roomRows}</tbody>
+        <tfoot>
+          <tr><td colspan="7" class="text-right font-bold">${labels.netTotal}</td><td class="text-right">${this.formatCurrency(grandTotalNet)}</td></tr>
+          <tr><td colspan="7" class="text-right">${labels.cityTaxTotal}</td><td class="text-right">${this.formatCurrency(cityTaxTotal)}</td></tr>
+          <tr><td colspan="7" class="text-right">${labels.taxableBase}</td><td class="text-right">${this.formatCurrency(taxableBase)}</td></tr>
+          <tr><td colspan="7" class="text-right">${labels.amountHT}</td><td class="text-right">${this.formatCurrency(amountHT)}</td></tr>
+          <tr><td colspan="7" class="text-right">${labels.vatAmount(vatRate)}</td><td class="text-right">${this.formatCurrency(vatAmount)}</td></tr>
+          <tr><td colspan="7" class="text-right font-bold">${labels.verification}</td><td class="text-right font-bold">${this.formatCurrency(balanceVerification)}</td></tr>
+        </tfoot>
+      </table>`
+
+    return { fiscal, summary }
+  }
+
+  /**
    * Convert number to words (simplifie
    * d implementation)
    */
@@ -3468,8 +3750,30 @@ static async generateSuitaHotelPdfFrench(
     if (!Number.isFinite(n) || n === 0) return 'Zero'
 
     const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine']
-    const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen']
-    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety']
+    const teens = [
+      'Ten',
+      'Eleven',
+      'Twelve',
+      'Thirteen',
+      'Fourteen',
+      'Fifteen',
+      'Sixteen',
+      'Seventeen',
+      'Eighteen',
+      'Nineteen',
+    ]
+    const tens = [
+      '',
+      '',
+      'Twenty',
+      'Thirty',
+      'Forty',
+      'Fifty',
+      'Sixty',
+      'Seventy',
+      'Eighty',
+      'Ninety',
+    ]
     const thousands = ['', 'Thousand', 'Million', 'Billion']
 
     function convertHundreds(num: number): string {
@@ -3501,8 +3805,7 @@ static async generateSuitaHotelPdfFrench(
 
     while (remaining > 0) {
       if (remaining % 1000 !== 0) {
-        result =
-          convertHundreds(remaining % 1000) + thousands[thousandIndex] + ' ' + result
+        result = convertHundreds(remaining % 1000) + thousands[thousandIndex] + ' ' + result
       }
       remaining = Math.floor(remaining / 1000)
       thousandIndex++
@@ -3516,14 +3819,14 @@ static async generateSuitaHotelPdfFrench(
    */
   private static formatDate(dateString: string): string {
     try {
-      const date = new Date(dateString);
+      const date = new Date(dateString)
       return date.toLocaleDateString('en-GB', {
         day: '2-digit',
         month: '2-digit',
-        year: 'numeric'
-      });
+        year: 'numeric',
+      })
     } catch (error) {
-      return dateString;
+      return dateString
     }
   }
 
@@ -3539,72 +3842,4 @@ static async generateSuitaHotelPdfFrench(
       maximumFractionDigits: 0,
     })
   }
-  /**
-   * Format time to HH'h'mm
-   */
-    private static formatTimeShort(dateValue: any): string {
-    if (dateValue === null || dateValue === undefined || dateValue === '') return 'N/A'
-
-    const formatHm = (hours: number, minutes: number) => {
-      const hh = String(Math.floor(hours)).padStart(2, '0')
-      const mm = String(Math.floor(minutes)).padStart(2, '0')
-      return `${hh}:${mm}`
-    }
-
-    const coerceHoursMinutes = (rawHours: number) => {
-      if (!Number.isFinite(rawHours)) return null
-      if (rawHours < 0) return null
-      const hours = Math.floor(rawHours) % 24
-      const minutes = Math.round((rawHours - Math.floor(rawHours)) * 60)
-      const normalizedHours = (hours + Math.floor(minutes / 60)) % 24
-      const normalizedMinutes = minutes % 60
-      return { hours: normalizedHours, minutes: normalizedMinutes }
-    }
-
-    try {
-      if (typeof dateValue === 'number') {
-        const hm = coerceHoursMinutes(dateValue)
-        return hm ? formatHm(hm.hours, hm.minutes) : 'N/A'
-      }
-
-      if (typeof dateValue === 'string') {
-        const value = dateValue.trim()
-        if (value === '') return 'N/A'
-
-        const timeMatch = value.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/)
-        if (timeMatch) {
-          const hours = Number(timeMatch[1])
-          const minutes = Number(timeMatch[2])
-          if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return 'N/A'
-          if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return 'N/A'
-          return formatHm(hours, minutes)
-        }
-
-        const hoursOnlyMatch = value.match(/^(\d{1,2})(?:\.(\d+))?$/)
-        if (hoursOnlyMatch) {
-          const rawHours = Number(value)
-          const hm = coerceHoursMinutes(rawHours)
-          return hm ? formatHm(hm.hours, hm.minutes) : 'N/A'
-        }
-      }
-
-      const date = new Date(dateValue)
-      if (isNaN(date.getTime())) return 'N/A'
-
-      const formatted = date.toLocaleTimeString('fr-FR', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      })
-
-      const parts = formatted.split(':')
-      if (parts.length < 2) return 'N/A'
-      const hours = Number(parts[0])
-      const minutes = Number(parts[1])
-      if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return 'N/A'
-      return formatHm(hours, minutes)
-    } catch {
-      return 'N/A'
-    }
-}
 }

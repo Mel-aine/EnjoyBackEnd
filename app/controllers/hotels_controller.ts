@@ -703,7 +703,8 @@ export default class HotelsController {
         'posTenantId',
         'posTokenKey',
         'whatsappFeedbackDelayHours',
-        'whatsappFeedbackEnabled'
+        'whatsappFeedbackEnabled',
+        'invoiceTemplate'
       ])
       const whatsappJustEnabled =
       payload.whatsappEnabled === true && hotel.whatsappEnabled === false
