@@ -757,6 +757,11 @@ export default class PdfGenerationService {
   private static generateBookingHtmlTemplate(data: FolioPrintData): string {
     const { hotel, reservation, totals, currency, billingAddress } = data
 
+    // Le modèle de facture de l'hôtel pilote le rendu du voucher : 'standard'
+    // conserve Room Details + Rates Details, sinon on affiche le récapitulatif
+    // détaillé (éléments additionnels) à leur place.
+   const invoiceTemplate = (hotel.printEmailSettings as any)?.invoiceTemplate
+    const useDetailedSummary = !!invoiceTemplate && invoiceTemplate !== 'standard'
     return `
     <!DOCTYPE html>
     <html lang="fr">
@@ -919,6 +924,14 @@ export default class PdfGenerationService {
                 justify-self: end;
             }
 
+            .summary-grid {
+                grid-template-columns: 1.3fr 0.6fr 0.6fr 1fr 1fr 1fr 1fr 1fr;
+            }
+
+            .summary-grid .text-right {
+                text-align: right;
+            }
+
             .border-2 {
                 border-width: 2px;
             }
@@ -1021,6 +1034,7 @@ export default class PdfGenerationService {
                 </div>
             </div>
 
+            ${useDetailedSummary ? this.buildBookingDetailedSummaryHtml(data, false) : `
             <!-- Room Details -->
             <div class="mb-4">
                 <h3 class="font-bold mb-2">Room Details</h3>
@@ -1096,6 +1110,7 @@ export default class PdfGenerationService {
                     </div>
                 </div>
             </div>
+            `}
 
             <!-- Booking Amount Box -->
             <div class="flex justify-between items-start mb-4">
@@ -1155,6 +1170,11 @@ export default class PdfGenerationService {
    */
   private static generateBookingHtmlTemplateFrench(data: FolioPrintData): string {
     const { hotel, reservation, totals, currency, billingAddress } = data
+
+    // Même règle que la version anglaise : récapitulatif détaillé seulement si
+    // le modèle de facture n'est pas 'standard'.
+   const invoiceTemplate = (hotel.printEmailSettings as any)?.invoiceTemplate
+    const useDetailedSummary = !!invoiceTemplate && invoiceTemplate !== 'standard'
 
     return `
 <!DOCTYPE html>
@@ -1318,6 +1338,14 @@ export default class PdfGenerationService {
             justify-self: end;
         }
 
+        .summary-grid {
+            grid-template-columns: 1.3fr 0.6fr 0.6fr 1fr 1fr 1fr 1fr 1fr;
+        }
+
+        .summary-grid .text-right {
+            text-align: right;
+        }
+
         .border-2 {
             border-width: 2px;
         }
@@ -1420,6 +1448,7 @@ export default class PdfGenerationService {
             </div>
         </div>
 
+        ${useDetailedSummary ? this.buildBookingDetailedSummaryHtml(data, true) : `
         <!-- Détails des Chambres -->
         <div class="mb-4">
             <h3 class="font-bold mb-2">Détails des Chambres</h3>
@@ -1495,6 +1524,7 @@ export default class PdfGenerationService {
                 </div>
             </div>
         </div>
+        `}
 
         <!-- Boîte Montant de la Réservation -->
         <div class="flex justify-between items-start mb-4">
@@ -3613,12 +3643,13 @@ export default class PdfGenerationService {
   }
 
   /**
-   * Fiscal parameters and room/tax summary injected into the standard folio invoice.
+   * Shared computation for the detailed invoice / booking summary table:
+   * labels, room rows and tax breakdown.
    */
-  private static buildDetailedInvoiceExtras(
+  private static buildDetailedSummaryValues(
     data: FolioPrintData | HotelInvoiceTemplateData,
     french: boolean
-  ): { fiscal: string; summary: string } {
+  ) {
     const { reservation, totals } = data as any
 
     const labels = french
@@ -3674,8 +3705,12 @@ export default class PdfGenerationService {
               netTotal: Number(totals.totalChargesWithTaxes || 0),
             },
           ]
+      summaryRows.forEach((r: any) => {
+        r.netTotal = Number(r.grossTotal || 0) - Number(r.discountTotal || 0)
+      })
 
     const tax = (data as any).taxSummary || {}
+    console.log('taxSummary:', JSON.stringify((data as any).taxSummary))
     const vatRate = Number(tax.vatRate ?? 0)
     const cityTaxPerNight = Number(tax.cityTaxPerNight ?? 0)
     const totalNights = Number(tax.totalNights ?? reservation.numberOfNights ?? 1)
@@ -3689,6 +3724,41 @@ export default class PdfGenerationService {
     const balanceVerification = Number(
       tax.balanceVerification ?? amountHT + vatAmount + cityTaxTotal
     )
+
+    return {
+      labels,
+      summaryRows,
+      vatRate,
+      cityTaxPerNight,
+      totalNights,
+      grandTotalNet,
+      cityTaxTotal,
+      taxableBase,
+      amountHT,
+      vatAmount,
+      balanceVerification,
+    }
+  }
+
+  /**
+   * Fiscal parameters and room/tax summary injected into the standard folio invoice.
+   */
+  private static buildDetailedInvoiceExtras(
+    data: FolioPrintData | HotelInvoiceTemplateData,
+    french: boolean
+  ): { fiscal: string; summary: string } {
+    const {
+      labels,
+      summaryRows,
+      vatRate,
+      cityTaxPerNight,
+      grandTotalNet,
+      cityTaxTotal,
+      taxableBase,
+      amountHT,
+      vatAmount,
+      balanceVerification,
+    } = this.buildDetailedSummaryValues(data, french)
 
     const roomRows = summaryRows
       .map(
@@ -3739,6 +3809,81 @@ export default class PdfGenerationService {
       </table>`
 
     return { fiscal, summary }
+  }
+
+  /**
+   * Récapitulatif détaillé (éléments additionnels) affiché sur le voucher de
+   * réservation lorsque le modèle de facture de l'hôtel n'est pas 'standard'.
+   * Reprend les données de la facture détaillée mais avec le style du voucher.
+   */
+  private static buildBookingDetailedSummaryHtml(data: FolioPrintData, french: boolean): string {
+    const {
+      labels,
+      summaryRows,
+      vatRate,
+      grandTotalNet,
+      cityTaxTotal,
+      taxableBase,
+      amountHT,
+      vatAmount,
+      balanceVerification,
+    } = this.buildDetailedSummaryValues(data, french)
+
+    const title = french ? 'Récapitulatif des Tarifs' : 'Rates Summary'
+
+    const roomRows = summaryRows
+      .map(
+        (room: any) => `
+                <div class="grid-row">
+                    <div class="grid-cell"><strong>${room.roomTypeName || ''}</strong></div>
+                    <div class="grid-cell">${room.rooms || 0}</div>
+                    <div class="grid-cell">${room.nights || 0}</div>
+                    <div class="grid-cell text-right">${this.formatAmount(room.nightlyRate)}</div>
+                    <div class="grid-cell text-right">${this.formatAmount(room.discountPerNight)}</div>
+                    <div class="grid-cell text-right">${this.formatAmount(room.grossTotal)}</div>
+                    <div class="grid-cell text-right">${this.formatAmount(room.discountTotal)}</div>
+                    <div class="grid-cell text-right">${this.formatAmount(room.netTotal)}</div>
+                </div>`
+      )
+      .join('')
+
+    const totalRow = (label: string, value: number, bold = false) => {
+      const boldClass = bold ? ' font-bold' : ''
+      return `
+                <div class="grid-row">
+                    <div class="grid-cell${boldClass}" style="grid-column: span 7; text-align: right;">${label}</div>
+                    <div class="grid-cell text-right${boldClass}">${this.formatAmount(value)}</div>
+                </div>`
+    }
+
+    return `
+            <!-- Éléments Additionnels / Additional Elements -->
+            <div class="mb-4">
+                <h3 class="font-bold mb-2">${title}</h3>
+                <div class="border-header mb-2">
+                <div class="data-grid summary-grid border-1-inside">
+                    <div class="grid-header">
+                        <div class="grid-header-cell">${labels.roomType}</div>
+                        <div class="grid-header-cell">${labels.rooms}</div>
+                        <div class="grid-header-cell">${labels.nights}</div>
+                        <div class="grid-header-cell text-right">${labels.rackRate}</div>
+                        <div class="grid-header-cell text-right">${labels.discountPerNight}</div>
+                        <div class="grid-header-cell text-right">${labels.grossTotal}</div>
+                        <div class="grid-header-cell text-right">${labels.discountTotal}</div>
+                        <div class="grid-header-cell text-right">${labels.netTotal}</div>
+                    </div>
+                    </div></div>
+                <div class="data-grid summary-grid">
+                    ${roomRows}
+                    ${totalRow(labels.netTotal, grandTotalNet, true)}
+                    ${totalRow(labels.cityTaxTotal, cityTaxTotal)}
+                    ${totalRow(labels.taxableBase, taxableBase)}
+                    ${totalRow(labels.amountHT, amountHT)}
+                    ${totalRow(labels.vatAmount(vatRate), vatAmount)}
+                    ${totalRow(labels.verification, balanceVerification, true)}
+                </div>
+            </div>
+`
   }
 
   /**
