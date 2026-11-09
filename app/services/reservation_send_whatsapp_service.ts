@@ -136,7 +136,8 @@ export default class ReservationSendWhatsappService {
     )
 
     let pdfBuffer: Buffer
-    const useDetailed = folioPrintData.hotel?.invoiceTemplate === 'detailed'
+    const useDetailed =
+      String((folioPrintData.hotel as any)?.invoiceTemplate || 'standard').toLowerCase() !== 'standard'
     if (useDetailed) {
       pdfBuffer = language === 'fr'
         ? await PdfGenerationService.generateDetailedHotelPdfFrench(folioPrintData)

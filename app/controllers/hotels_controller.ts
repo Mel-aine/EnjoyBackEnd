@@ -708,10 +708,19 @@ export default class HotelsController {
       ])
       const whatsappJustEnabled =
       payload.whatsappEnabled === true && hotel.whatsappEnabled === false
+      const { invoiceTemplate, ...hotelPayload } = payload
       // Create update data with proper typing
       const updateData: any = {
-        ...payload,
+        ...hotelPayload,
         lastModifiedBy: auth.user?.id || 0
+      }
+
+      // `invoiceTemplate` lives inside printEmailSettings, not on the hotels table
+      if (invoiceTemplate !== undefined && invoiceTemplate !== null) {
+        updateData.printEmailSettings = {
+          ...((hotel.printEmailSettings as Record<string, any>) || {}),
+          invoiceTemplate,
+        }
       }
 
       hotel.merge(updateData)

@@ -760,8 +760,10 @@ export default class PdfGenerationService {
     // Le modèle de facture de l'hôtel pilote le rendu du voucher : 'standard'
     // conserve Room Details + Rates Details, sinon on affiche le récapitulatif
     // détaillé (éléments additionnels) à leur place.
-   const invoiceTemplate = (hotel.printEmailSettings as any)?.invoiceTemplate
-    const useDetailedSummary = !!invoiceTemplate && invoiceTemplate !== 'standard'
+    const invoiceTemplate =
+      (hotel as any).invoiceTemplate ?? (hotel.printEmailSettings as any)?.invoiceTemplate
+    const useDetailedSummary =
+      !!invoiceTemplate && String(invoiceTemplate).toLowerCase() !== 'standard'
     return `
     <!DOCTYPE html>
     <html lang="fr">
@@ -1173,8 +1175,10 @@ export default class PdfGenerationService {
 
     // Même règle que la version anglaise : récapitulatif détaillé seulement si
     // le modèle de facture n'est pas 'standard'.
-   const invoiceTemplate = (hotel.printEmailSettings as any)?.invoiceTemplate
-    const useDetailedSummary = !!invoiceTemplate && invoiceTemplate !== 'standard'
+    const invoiceTemplate =
+      (hotel as any).invoiceTemplate ?? (hotel.printEmailSettings as any)?.invoiceTemplate
+    const useDetailedSummary =
+      !!invoiceTemplate && String(invoiceTemplate).toLowerCase() !== 'standard'
 
     return `
 <!DOCTYPE html>

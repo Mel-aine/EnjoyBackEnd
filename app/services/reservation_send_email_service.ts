@@ -33,7 +33,8 @@ export default class ReservationSendEmailService {
 
     // Générer le PDF (modèle standard ou détaillé selon la configuration de l'hôtel)
     let pdfBuffer: Buffer
-    const useDetailed = hotel.invoiceTemplate === 'detailed'
+    const useDetailed =
+      String((folioPrintData.hotel as any).invoiceTemplate || 'standard').toLowerCase() !== 'standard'
     if (useDetailed) {
       pdfBuffer = language === 'fr'
         ? await PdfGenerationService.generateDetailedHotelPdfFrench(folioPrintData)

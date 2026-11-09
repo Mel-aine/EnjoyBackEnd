@@ -65,9 +65,9 @@ export default class FolioPrintController {
 
       const PdfGenerationService = (await import('#services/pdf_generation_service')).default
       const template = String(
-        request.input('template') || folioPrintData.hotel.invoiceTemplate || 'standard'
-      )
-      const pdfBuffer = template === 'detailed'
+        request.input('template') || (folioPrintData.hotel as any).invoiceTemplate || 'standard'
+      ).toLowerCase()
+      const pdfBuffer = template !== 'standard'
         ? await PdfGenerationService.generateDetailedHotelPdf(folioPrintData)
         : await PdfGenerationService.generateSuitaHotelPdf(folioPrintData)
 
@@ -170,10 +170,10 @@ export default class FolioPrintController {
 
       // Choix de la méthode en fonction de la langue et du modèle configuré
       const template = String(
-        request.input('template') || folioPrintData.hotel.invoiceTemplate || 'standard'
-      )
+        request.input('template') || (folioPrintData.hotel as any).invoiceTemplate || 'standard'
+      ).toLowerCase()
       let bookingPdf: Buffer
-      if (template === 'detailed') {
+      if (template !== 'standard') {
         bookingPdf = language === 'fr'
           ? await PdfGenerationService.generateDetailedHotelPdfFrench(folioPrintData)
           : await PdfGenerationService.generateDetailedHotelPdf(folioPrintData)
