@@ -764,6 +764,9 @@ export default class PdfGenerationService {
       (hotel as any).invoiceTemplate ?? (hotel.printEmailSettings as any)?.invoiceTemplate
     const useDetailedSummary =
       !!invoiceTemplate && String(invoiceTemplate).toLowerCase() !== 'standard'
+
+   const { labels: fiscalLabels, vatRate, cityTaxPerNight } =
+    this.buildDetailedSummaryValues(data, false)
     return `
     <!DOCTYPE html>
     <html lang="fr">
@@ -1023,16 +1026,27 @@ export default class PdfGenerationService {
                     <div>Nights : ${reservation.numberOfNights}</div>
                     <div>Arrival Time : ${reservation.checkInTime}</div>
                     <div>Special Request : ${reservation.specialRequests ?? ''}</div>
+
                 </div>
+
             </div>
 
-            <!-- Your Details -->
-            <div class="mb-4">
-                <h3 class="font-bold mb-2">Your Details</h3>
-                <div class="text-sm">
-                    ${reservation.guest?.displayName}<br>
-                    Email ID : ${billingAddress?.email || reservation.guest?.email || 'N/A'}<br>
-                    Phone : ${billingAddress?.phone || reservation.guest?.phonePrimary || 'N/A'}
+           <!-- Your Details + Fiscal Parameters -->
+            <div class="mb-4 flex justify-between items-start">
+                <div style="width: 50%;">
+                    <h3 class="font-bold mb-2">Your Details</h3>
+                    <div class="text-sm">
+                        ${reservation.guest?.displayName}<br>
+                        Email ID : ${billingAddress?.email || reservation.guest?.email || 'N/A'}<br>
+                        Phone : ${billingAddress?.phone || reservation.guest?.phonePrimary || 'N/A'}
+                    </div>
+                </div>
+                <div style="width: 50%;">
+                    <h3 class="font-bold mb-2">${fiscalLabels.fiscalParams}</h3>
+                    <div class="text-sm">
+                        ${fiscalLabels.vatRate} : ${vatRate}%<br>
+                        ${fiscalLabels.cityTax} : ${this.formatAmount(cityTaxPerNight)} ${currency.code}
+                    </div>
                 </div>
             </div>
 
@@ -1179,6 +1193,9 @@ export default class PdfGenerationService {
       (hotel as any).invoiceTemplate ?? (hotel.printEmailSettings as any)?.invoiceTemplate
     const useDetailedSummary =
       !!invoiceTemplate && String(invoiceTemplate).toLowerCase() !== 'standard'
+
+    const { labels: fiscalLabels, vatRate, cityTaxPerNight } =
+      this.buildDetailedSummaryValues(data, true)
 
     return `
 <!DOCTYPE html>
@@ -1440,15 +1457,26 @@ export default class PdfGenerationService {
                 <div>Heure d'arrivée : ${reservation.checkInTime}</div>
                 <div>Demandes spéciales : ${reservation.specialRequests ?? ''}</div>
             </div>
+
         </div>
 
-        <!-- Vos Coordonnées -->
-        <div class="mb-4">
-            <h3 class="font-bold mb-2">Vos Coordonnées</h3>
-            <div class="text-sm">
-                ${reservation.guest?.displayName}<br>
-                Email : ${billingAddress?.email || reservation.guest?.email || 'N/A'}<br>
-                Téléphone : ${billingAddress?.phone || reservation.guest?.phonePrimary || 'N/A'}
+
+        <!-- Vos Coordonnées + Paramètres Fiscaux -->
+        <div class="mb-4 flex justify-between items-start">
+            <div style="width: 50%;">
+                <h3 class="font-bold mb-2">Vos Coordonnées</h3>
+                <div class="text-sm">
+                    ${reservation.guest?.displayName}<br>
+                    Email : ${billingAddress?.email || reservation.guest?.email || 'N/A'}<br>
+                    Téléphone : ${billingAddress?.phone || reservation.guest?.phonePrimary || 'N/A'}
+                </div>
+            </div>
+            <div style="width: 50%;">
+                <h3 class="font-bold mb-2">${fiscalLabels.fiscalParams}</h3>
+                <div class="text-sm">
+                    ${fiscalLabels.vatRate} : ${String(vatRate).replace('.', ',')} %<br>
+                    ${fiscalLabels.cityTax} : ${this.formatAmount(cityTaxPerNight)} ${currency.code}
+                </div>
             </div>
         </div>
 
@@ -1933,9 +1961,7 @@ export default class PdfGenerationService {
             </div>
         `
 
-    const continuedNotice = `
-            <div class="continued-notice">Continued on next page...</div>
-        `
+
 
     // Fonction pour générer les lignes de transactions d'une page
     const generateTransactionRows = (pageTransactions: any[]) => {
@@ -2012,7 +2038,7 @@ export default class PdfGenerationService {
 
                 ${extras ? extras.summary : ''}
 
-                ${hasPoliciesPage ? continuedNotice : trackingFooterHtml}
+                ${hasPoliciesPage ? '' : trackingFooterHtml}
             `
 
       return `
@@ -2081,7 +2107,7 @@ export default class PdfGenerationService {
                         </table>
                     </div>
 
-                    ${isLastTxPage ? lastTxContent : continuedNotice}
+                    ${isLastTxPage ? lastTxContent : ''}
 
                     <!-- Page Info -->
                     <div class="page-info">
@@ -2301,6 +2327,10 @@ export default class PdfGenerationService {
                     text-align: left;
                 }
 
+                .header-table.summary-table td.text-right {
+                    text-align: right;
+                }
+
                 .header-table th {
                     font-weight: bold;
                     background-color: #d3d3d3;
@@ -2489,9 +2519,7 @@ export default class PdfGenerationService {
             </div>
         `
 
-    const continuedNotice = `
-            <div class="continued-notice">Suite à la page suivante...</div>
-        `
+
 
     // Fonction pour générer les lignes de transactions d'une page
     const generateTransactionRows = (pageTransactions: any[]) => {
@@ -2568,7 +2596,7 @@ export default class PdfGenerationService {
 
                 ${extras ? extras.summary : ''}
 
-                ${hasPoliciesPage ? continuedNotice : trackingFooterHtml}
+                ${hasPoliciesPage ? '' : trackingFooterHtml}
             `
 
       return `
@@ -2637,7 +2665,7 @@ export default class PdfGenerationService {
                         </table>
                     </div>
 
-                    ${isLastTxPage ? lastTxContent : continuedNotice}
+                    ${isLastTxPage ? lastTxContent : ''}
 
                     <!-- Information de Page -->
                     <div class="page-info">
@@ -2850,6 +2878,9 @@ export default class PdfGenerationService {
                     font-size: 10px;
                 }
 
+                .header-table.summary-table td.text-right {
+                    text-align: right;
+                }
                 .header-table th,
                 .header-table td {
                     border: 1px solid #000;
@@ -2897,6 +2928,7 @@ export default class PdfGenerationService {
                 .charges-table .header-table tfoot {
                     display: table-footer-group;
                 }
+
 
                 @media print {
                     body {
@@ -3650,11 +3682,12 @@ export default class PdfGenerationService {
    * Shared computation for the detailed invoice / booking summary table:
    * labels, room rows and tax breakdown.
    */
-  private static buildDetailedSummaryValues(
+   private static buildDetailedSummaryValues(
     data: FolioPrintData | HotelInvoiceTemplateData,
     french: boolean
   ) {
     const { reservation, totals } = data as any
+
 
     const labels = french
       ? {
@@ -3694,27 +3727,56 @@ export default class PdfGenerationService {
           verification: 'Accounting Balance Check (HT + VAT + Tax)',
         }
 
+
+    const folioDiscounts = Number(totals.totalDiscounts || 0)
+    const fallbackNights = Number(reservation.numberOfNights || 1)
+
+    const fallbackGross = Number(
+      totals.totalCharges ?? Number(totals.totalChargesWithTaxes || 0) + folioDiscounts
+    )
+
     const summaryRows: any[] =
       (data as any).roomSummary?.length > 0
-        ? (data as any).roomSummary
+        ? (data as any).roomSummary.map((r: any) => ({ ...r }))
         : [
             {
               roomTypeName: reservation.roomType || (french ? 'Chambre' : 'Room'),
               rooms: 1,
-              nights: Number(reservation.numberOfNights || 1),
+              nights: fallbackNights,
               nightlyRate: Number(reservation.tariff || 0),
               discountPerNight: 0,
-              grossTotal: Number(totals.totalChargesWithTaxes || 0),
-              discountTotal: Number(totals.totalDiscounts || 0),
-              netTotal: Number(totals.totalChargesWithTaxes || 0),
+              grossTotal: fallbackGross,
+              discountTotal: 0,
+              netTotal: fallbackGross,
             },
           ]
+
+
+    const roomsDiscountSum = summaryRows.reduce(
+      (sum: number, r: any) => sum + Number(r.discountTotal || 0),
+      0
+    )
+
+    if (roomsDiscountSum === 0 && folioDiscounts > 0) {
+      const grossSum = summaryRows.reduce(
+        (sum: number, r: any) => sum + Number(r.grossTotal || 0),
+        0
+      )
       summaryRows.forEach((r: any) => {
-        r.netTotal = Number(r.grossTotal || 0) - Number(r.discountTotal || 0)
+        const share = grossSum > 0 ? Number(r.grossTotal || 0) / grossSum : 1 / summaryRows.length
+        r.discountTotal = folioDiscounts * share
+        const roomNights = Number(r.nights || 0) * Number(r.rooms || 1)
+        r.discountPerNight = roomNights > 0 ? r.discountTotal / roomNights : 0
       })
+    }
+
+
+    summaryRows.forEach((r: any) => {
+      r.netTotal = Number(r.grossTotal || 0) - Number(r.discountTotal || 0)
+    })
+
 
     const tax = (data as any).taxSummary || {}
-    console.log('taxSummary:', JSON.stringify((data as any).taxSummary))
     const vatRate = Number(tax.vatRate ?? 0)
     const cityTaxPerNight = Number(tax.cityTaxPerNight ?? 0)
     const totalNights = Number(tax.totalNights ?? reservation.numberOfNights ?? 1)
@@ -3788,7 +3850,7 @@ export default class PdfGenerationService {
       </div>`
 
     const summary = `
-      <table class="header-table">
+      <table class="header-table summary-table">
         <thead>
           <tr>
             <th>${labels.roomType}</th>
