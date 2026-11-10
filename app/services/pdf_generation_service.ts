@@ -1825,6 +1825,51 @@ export default class PdfGenerationService {
         </div>`
   }
 
+  /**
+   * Répartit les transactions en pages : les pages intermédiaires sont pleines,
+   * la dernière garde de la place pour les totaux. La répartition est équilibrée
+   * afin d'éviter une dernière page presque vide (ex. 9 lignes => 5 + 4 et non 8 + 1).
+   */
+  private static splitTransactionPages<T>(
+    transactions: T[],
+    lastPageCapacity: number,
+    fullPageCapacity = 15
+  ): T[][] {
+    const total = transactions.length
+    if (total === 0) return [[]]
+    if (total <= lastPageCapacity) return [transactions.slice()]
+
+    // Nombre minimal de pages nécessaires
+    const pageCount = Math.ceil((total - lastPageCapacity) / fullPageCapacity) + 1
+
+    // La dernière page contient au plus ce que permet la place réservée aux totaux,
+    // les autres lignes sont réparties équitablement sur les pages précédentes.
+    const lastPageSize = Math.max(1, Math.min(lastPageCapacity, Math.floor(total / pageCount)))
+    const remainingRows = total - lastPageSize
+    const otherPages = pageCount - 1
+    const rowsPerPage = Math.floor(remainingRows / otherPages)
+    const extraRows = remainingRows % otherPages
+
+    const pages: T[][] = []
+    let index = 0
+    for (let page = 0; page < otherPages; page++) {
+      const size = rowsPerPage + (page < extraRows ? 1 : 0)
+      pages.push(transactions.slice(index, index + size))
+      index += size
+    }
+    pages.push(transactions.slice(index, index + lastPageSize))
+    return pages
+  }
+
+  /** Longueur du texte des politiques (sans balises) pour estimer leur encombrement. */
+  private static policyPlainTextLength(html: string): number {
+    return html
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim().length
+  }
+
   private static formatCurrency(amount: number): string {
     if (amount === null || amount === undefined || isNaN(amount)) {
       return '0'
@@ -1862,32 +1907,25 @@ export default class PdfGenerationService {
     const policiesHtml = this.generatePoliciesHtml(hotel, false)
     const hasPoliciesPage = !!policiesHtml
 
-    // Pagination: diviser les transactions en groupes de 10
-    // const TRANSACTIONS_PER_PAGE = 10;
-    // const transactionPages: any[][] = [];
-
-    // if (transactions && transactions.length > 0) {
-    //     for (let i = 0; i < transactions.length; i += TRANSACTIONS_PER_PAGE) {
-    //         transactionPages.push(transactions.slice(i, i + TRANSACTIONS_PER_PAGE));
-    //     }
-    // } else {
-    //     transactionPages.push([]);
-    // }
+    // Pagination: répartir les transactions équitablement entre les pages
     const FULL_PAGE_ROWS = 15
     const LAST_PAGE_ROWS = extras ? 4 : 8
-    const transactionPages: any[][] = []
-    const remaining = [...(transactions ?? [])]
+    const transactionPages = this.splitTransactionPages(
+      transactions ?? [],
+      LAST_PAGE_ROWS,
+      FULL_PAGE_ROWS
+    )
 
-    if (remaining.length === 0) {
-      transactionPages.push([])
-    } else {
-      while (remaining.length > LAST_PAGE_ROWS) {
-        transactionPages.push(remaining.splice(0, Math.min(FULL_PAGE_ROWS, remaining.length - 1)))
-      }
-      transactionPages.push(remaining)
-    }
+    // Garder les politiques sur la page des transactions si la place le permet
+    // (budget réduit quand des lignes de transactions occupent déjà la page)
+    const canMergePolicies =
+      hasPoliciesPage &&
+      !extras &&
+      transactionPages.length === 1 &&
+      transactionPages[0].length <= 3 &&
+      this.policyPlainTextLength(policiesHtml) <= (transactionPages[0].length === 3 ? 1400 : 2000)
 
-    const totalPages = transactionPages.length + (hasPoliciesPage ? 1 : 0)
+    const totalPages = transactionPages.length + (hasPoliciesPage && !canMergePolicies ? 1 : 0)
 
     // Header + détails facture (répétés sur chaque page, y compris la dernière)
     const headerHtml = `
@@ -2038,7 +2076,9 @@ export default class PdfGenerationService {
 
                 ${extras ? extras.summary : ''}
 
-                ${hasPoliciesPage ? '' : trackingFooterHtml}
+                ${canMergePolicies ? policiesHtml : ''}
+
+                ${hasPoliciesPage && !canMergePolicies ? '' : trackingFooterHtml}
             `
 
       return `
@@ -2138,7 +2178,7 @@ export default class PdfGenerationService {
     const allPages =
       transactionPages
         .map((pageTransactions, index) => generatePage(pageTransactions, index + 1))
-        .join('') + (hasPoliciesPage ? generatePoliciesPage(totalPages) : '')
+        .join('') + (hasPoliciesPage && !canMergePolicies ? generatePoliciesPage(totalPages) : '')
 
     return `<!DOCTYPE html>
         <html lang="fr">
@@ -2414,32 +2454,25 @@ export default class PdfGenerationService {
     const policiesHtml = this.generatePoliciesHtml(hotel, true)
     const hasPoliciesPage = !!policiesHtml
 
-    // Pagination : diviser les transactions en groupes de 10
-    // const TRANSACTIONS_PER_PAGE = 10;
-    // const transactionPages: any[][] = [];
-
-    // if (transactions && transactions.length > 0) {
-    //     for (let i = 0; i < transactions.length; i += TRANSACTIONS_PER_PAGE) {
-    //         transactionPages.push(transactions.slice(i, i + TRANSACTIONS_PER_PAGE));
-    //     }
-    // } else {
-    //     transactionPages.push([]);
-    // }
+    // Pagination : répartir les transactions équitablement entre les pages
     const FULL_PAGE_ROWS = 15
     const LAST_PAGE_ROWS = extras ? 4 : 8
-    const transactionPages: any[][] = []
-    const remaining = [...(transactions ?? [])]
+    const transactionPages = this.splitTransactionPages(
+      transactions ?? [],
+      LAST_PAGE_ROWS,
+      FULL_PAGE_ROWS
+    )
 
-    if (remaining.length === 0) {
-      transactionPages.push([])
-    } else {
-      while (remaining.length > LAST_PAGE_ROWS) {
-        transactionPages.push(remaining.splice(0, Math.min(FULL_PAGE_ROWS, remaining.length - 1)))
-      }
-      transactionPages.push(remaining)
-    }
+    // Garder les politiques sur la page des transactions si la place le permet
+    // (budget réduit quand des lignes de transactions occupent déjà la page)
+    const canMergePolicies =
+      hasPoliciesPage &&
+      !extras &&
+      transactionPages.length === 1 &&
+      transactionPages[0].length <= 3 &&
+      this.policyPlainTextLength(policiesHtml) <= (transactionPages[0].length === 3 ? 1400 : 2000)
 
-    const totalPages = transactionPages.length + (hasPoliciesPage ? 1 : 0)
+    const totalPages = transactionPages.length + (hasPoliciesPage && !canMergePolicies ? 1 : 0)
 
     // En-tête + détails facture (répétés sur chaque page, y compris la dernière)
     const headerHtml = `
@@ -2596,7 +2629,9 @@ export default class PdfGenerationService {
 
                 ${extras ? extras.summary : ''}
 
-                ${hasPoliciesPage ? '' : trackingFooterHtml}
+                ${canMergePolicies ? policiesHtml : ''}
+
+                ${hasPoliciesPage && !canMergePolicies ? '' : trackingFooterHtml}
             `
 
       return `
@@ -2696,7 +2731,7 @@ export default class PdfGenerationService {
     const allPages =
       transactionPages
         .map((pageTransactions, index) => generatePage(pageTransactions, index + 1))
-        .join('') + (hasPoliciesPage ? generatePoliciesPage(totalPages) : '')
+        .join('') + (hasPoliciesPage && !canMergePolicies ? generatePoliciesPage(totalPages) : '')
 
     return `<!DOCTYPE html>
         <html lang="fr">
