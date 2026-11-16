@@ -158,6 +158,9 @@ export default class RoomRate extends BaseModel {
   @column()
   declare channexRateId: string | null
 
+  @column({ columnName: 'hub_rate_plan_id' })
+  declare hubRatePlanId: number | null
+
   @column({ columnName: 'tax_include' })
   declare taxInclude: boolean
 

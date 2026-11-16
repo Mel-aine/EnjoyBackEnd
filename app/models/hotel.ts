@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon'
 import { BaseModel, column, hasMany, belongsTo, beforeCreate, manyToMany } from '@adonisjs/lucid/orm'
 import crypto from 'crypto'
+import encryption from '@adonisjs/core/services/encryption'
 import type { HasMany, BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
 import type { ModelQueryBuilderContract } from '@adonisjs/lucid/types/model'
 import RoomType from './room_type.js'
@@ -472,6 +473,26 @@ export default class Hotel extends BaseModel {
 
   @column({ columnName: 'channex_property_id' })
   declare channexPropertyId: string | null
+
+  // Hub OTA (connect-hub). Secrets are encrypted with APP_KEY and never serialized.
+  @column({ columnName: 'hub_property_id' })
+  declare hubPropertyId: number | null
+
+  @column({
+    columnName: 'hub_api_key',
+    serializeAs: null,
+    prepare: (value: string | null) => (value ? encryption.encrypt(value) : null),
+    consume: (value: string | null) => (value ? encryption.decrypt<string>(value) : null),
+  })
+  declare hubApiKey: string | null
+
+  @column({
+    columnName: 'hub_webhook_secret',
+    serializeAs: null,
+    prepare: (value: string | null) => (value ? encryption.encrypt(value) : null),
+    consume: (value: string | null) => (value ? encryption.decrypt<string>(value) : null),
+  })
+  declare hubWebhookSecret: string | null
 
   @column()
   declare migrated: boolean

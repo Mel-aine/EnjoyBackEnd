@@ -5,6 +5,7 @@ import { DateTime } from 'luxon'
 import ReservationRoomService from '#services/reservation_room_service'
 import Hotel from '#models/hotel'
 import LoggerService from '#services/logger_service'
+import HubRateSync from '#services/hub_rate_sync'
 
 export default class ChannexController {
   private service: ChannexService
@@ -71,6 +72,8 @@ export default class ChannexController {
       }
 
       const data = await this.service.updateRestrictions(propertyId, payload)
+      // Hub OTA: same values, in the background (no-op unless HUB_ENABLED=true).
+      HubRateSync.mirrorChannexRestrictions(propertyId, payload.values)
       return response.ok({ message: 'Restrictions updated', data })
     } catch (error: any) {
       return response.internalServerError({ message: error.message || 'Failed to update restrictions' })
@@ -470,6 +473,9 @@ public async getRoomTypesWithRatePlans({ params, response }: HttpContext) {
       }
 
       const [availabilityRes, restrictionsRes] = await Promise.all(tasks)
+
+      // Hub OTA: same prices and restrictions, in the background (no-op unless HUB_ENABLED=true).
+      HubRateSync.mirrorChannexRestrictions(hotel.channexPropertyId, restrictionValues)
 
       // Log success
       await LoggerService.log({

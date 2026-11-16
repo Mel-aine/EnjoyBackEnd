@@ -43,6 +43,9 @@ interface RoomData {
   original_room_rate?: number
   original_currency_code?: string
   original_exchange_rate?: number
+  // Hub OTA only: what the hub sold for this room (nights [from, to) of this room type).
+  hub_sold_from?: string
+  hub_sold_to?: string
 }
 
 /**
@@ -143,6 +146,10 @@ interface ReservationCreationData {
   ota_reservation_code?: string
   payment_collect?: string
   ota_commission?: string
+
+  // Hub OTA (local OTAs such as KasaStay). Absent for every other source.
+  hub_booking_id?: number
+  hub_revision_seq?: number | null
 
   // Notes
   special_requests?: string
@@ -510,6 +517,10 @@ export default class ReservationCreationService {
           releaseRemindGuestbeforeDays: data.isHold ? data.ReleaseRemindGuestbeforeDays : null,
           reservedBy: data.created_by,
           createdBy: data.created_by,
+          // Set at creation so that the hub availability push never counts it.
+          ...(data.hub_booking_id
+            ? { hubBookingId: data.hub_booking_id, hubRevisionSeq: data.hub_revision_seq ?? null }
+            : {}),
         },
         { client: trx }
       )
@@ -607,6 +618,13 @@ export default class ReservationCreationService {
               originalRoomRate: room.original_room_rate ?? null,
               originalCurrencyCode: room.original_currency_code ?? null,
               originalExchangeRate: room.original_exchange_rate ?? null,
+              ...(room.hub_sold_from && room.hub_sold_to
+                ? {
+                    hubSoldFrom: DateTime.fromISO(room.hub_sold_from),
+                    hubSoldTo: DateTime.fromISO(room.hub_sold_to),
+                    hubRoomTypeId: room.room_type_id,
+                  }
+                : {}),
               roomRateId: room.room_rate_id,
               paymentMethodId: data.payment_mod,
               hotelId: data.hotel_id,
@@ -682,7 +700,7 @@ export default class ReservationCreationService {
         const NotificationService = (await import('#services/notification_service')).default
 
         // Déterminer si c'est une réservation OTA
-        const isOtaReservation =  !!data.channex_booking_id
+        const isOtaReservation =  !!data.channex_booking_id || !!data.hub_booking_id
 
         // Notification principale selon le type
         let notificationTemplateCode = isOtaReservation
@@ -1204,10 +1222,21 @@ export default class ReservationCreationService {
         cancellationFeeAmount, userId, feeTaxInclusive
       ) : undefined
     let cancellationFeePosted = !!existingPenalty
+    // enjoy closes a folio as soon as it is created (see TransactionHook), so a
+    // reservation often has no open folio: the OTA fee then goes on its closed
+    // folio, which its new balance reopens. Before, the fee was silently lost.
+    const feeFolio =
+      reservation.folios.find((f) => f.status === FolioStatus.OPEN) ??
+      reservation.folios.find((f) => f.status === FolioStatus.CLOSED)
     for (const folio of reservation.folios) {
-      if (folio.status === FolioStatus.OPEN) {
+      {
         // Post cancellation fee transaction BEFORE closing the folio
-        if (!cancellationFeePosted && cancellationFeeAmount && cancellationFeeAmount > 0) {
+        if (
+          folio === feeFolio &&
+          !cancellationFeePosted &&
+          cancellationFeeAmount &&
+          cancellationFeeAmount > 0
+        ) {
           try {
             const FolioService = (await import('../services/folio_service.js')).default
             await FolioService.postTransaction({
@@ -1248,14 +1277,15 @@ export default class ReservationCreationService {
           }
         }
 
-        folio.status = FolioStatus.CLOSED
-        folio.workflowStatus = WorkflowStatus.FINALIZED
-        folio.closedDate = DateTime.now()
-        folio.closedBy = userId!
-        folio.lastModifiedBy = userId!
-        await folio.save()
-        foliosClosed++
-
+        if (folio.status === FolioStatus.OPEN) {
+          folio.status = FolioStatus.CLOSED
+          folio.workflowStatus = WorkflowStatus.FINALIZED
+          folio.closedDate = DateTime.now()
+          folio.closedBy = userId!
+          folio.lastModifiedBy = userId!
+          await folio.save()
+          foliosClosed++
+        }
       }
       transactionsCancelled += await ReservationPenaltyService.voidCharges(
         folio.id, TransactionCategory.CANCELLATION_FEE, userId, reason || 'Channex cancellation'

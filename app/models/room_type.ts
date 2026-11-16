@@ -77,6 +77,9 @@ declare rateTypes: ManyToMany<typeof RateType>
   @column({ columnName: 'channex_room_type_id' })
   declare channexRoomTypeId: string | null
 
+  @column({ columnName: 'hub_room_type_id' })
+  declare hubRoomTypeId: number | null
+
   @column({ columnName: 'is_paymaster' })
   declare isPaymaster: boolean
 

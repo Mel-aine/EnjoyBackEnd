@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import { ChannexService } from '../services/channex_service.js'
 import logger from '@adonisjs/core/services/logger'
 import { ChannexRestrictionType } from '#app/enums'
+import HubRateSync from '#services/hub_rate_sync'
 
 
 export default class ChannexRestrictionsController {
@@ -174,7 +175,10 @@ export default class ChannexRestrictionsController {
         const result = await this.channexService.updateRestrictions(propertyId, [
         { values }
         ])
-    
+
+        // Hub OTA: same values, in the background (no-op unless HUB_ENABLED=true).
+        HubRateSync.mirrorChannexRestrictions(propertyId, values)
+
         return response.ok({
         success: true,
         data: result,

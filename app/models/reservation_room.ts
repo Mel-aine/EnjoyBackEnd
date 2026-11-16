@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany, beforeSave, computed } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, beforeSave, afterDelete, computed } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import Room from './room.js'
 import RoomType from './room_type.js'
@@ -15,6 +15,7 @@ import MealPlan from './meal_plan.js'
 import ReservationRoomService from '../services/reservation_room_service.js'
 import ReservationGuest from './reservation_guest.js'
 import { ChannexService } from '../services/channex_service.js'
+import { hubOnReservationRoomChange } from '../services/hub_hooks.js'
 
 export default class ReservationRoom extends BaseModel {
   @column({ isPrimary: true })
@@ -49,6 +50,17 @@ export default class ReservationRoom extends BaseModel {
 
   @column.date()
   declare checkOutDate: DateTime
+
+  // Hub OTA: nights [hubSoldFrom, hubSoldTo) of room type hubRoomTypeId that
+  // the hub sold (null for every other reservation).
+  @column.date({ columnName: 'hub_sold_from' })
+  declare hubSoldFrom: DateTime | null
+
+  @column.date({ columnName: 'hub_sold_to' })
+  declare hubSoldTo: DateTime | null
+
+  @column({ columnName: 'hub_room_type_id' })
+  declare hubRoomTypeId: number | null
 
   @column.date()
   declare extendDate: DateTime | null
@@ -895,5 +907,16 @@ export default class ReservationRoom extends BaseModel {
         await channexService.updateAvailability(hotel.channexPropertyId, { values })
       } catch { }
     }, 0)
+  }
+
+  // Hub OTA: no-op unless HUB_ENABLED=true; never throws.
+  @beforeSave()
+  public static hubSyncOnSave(model: ReservationRoom) {
+    hubOnReservationRoomChange(model)
+  }
+
+  @afterDelete()
+  public static hubSyncOnDelete(model: ReservationRoom) {
+    hubOnReservationRoomChange(model)
   }
 }

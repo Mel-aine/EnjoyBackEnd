@@ -218,7 +218,8 @@ export default class ReservationRoomService {
     hotelId: number,
     roomTypeIds: number[],
     startDate: Date,
-    endDate: Date
+    endDate: Date,
+    options: { excludeHubBookings?: boolean } = {}
   ): Promise<Record<string, Record<number, number>>> {
     if (!roomTypeIds.length) return {}
 
@@ -251,7 +252,24 @@ export default class ReservationRoomService {
               .andWhere('check_out_date', '>=', endDate)
           })
       })
-      .select(['room_id', 'check_in_date', 'check_out_date'])
+      .select(
+        options.excludeHubBookings
+          ? ['room_id', 'check_in_date', 'check_out_date', 'hub_sold_from', 'hub_sold_to', 'hub_room_type_id']
+          : ['room_id', 'check_in_date', 'check_out_date']
+      )
+
+    // Hub OTA: the nights the hub itself sold are already in its `sold`, so
+    // they must not be removed a second time from `total`. Only those nights,
+    // and only while the room is still of the type the hub sold: nights added
+    // in enjoy (extension, move, upgrade) are counted like any reservation.
+    const soldByHub = (res: any, day: Date): boolean => {
+      if (!options.excludeHubBookings || !res.hubSoldFrom || !res.hubSoldTo) return false
+      if (roomTypeByRoomId[res.roomId] !== res.hubRoomTypeId) return false
+      const key = DateTime.fromJSDate(day).toISODate()!
+      const from = DateTime.isDateTime(res.hubSoldFrom) ? res.hubSoldFrom.toISODate() : String(res.hubSoldFrom).slice(0, 10)
+      const to = DateTime.isDateTime(res.hubSoldTo) ? res.hubSoldTo.toISODate() : String(res.hubSoldTo).slice(0, 10)
+      return key >= from && key < to
+    }
 
     const blocks = await RoomBlock.query()
       .where('hotel_id', hotelId)
@@ -287,8 +305,8 @@ export default class ReservationRoomService {
         const ci = res.checkInDate ? (res.checkInDate as any).toJSDate?.() ?? (res as any).checkInDate : undefined
         const co = res.checkOutDate ? (res.checkOutDate as any).toJSDate?.() ?? (res as any).checkOutDate : undefined
         if (!ci || !co) continue
-        
-        if (d >= ci && d < co) {
+
+        if (d >= ci && d < co && !soldByHub(res, d)) {
           const rtId = roomTypeByRoomId[res.roomId!]
           if (rtId) counts[rtId] = Math.max(0, (counts[rtId] || 0) - 1)
         }

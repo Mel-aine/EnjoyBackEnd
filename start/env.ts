@@ -96,6 +96,36 @@ export default await Env.create(new URL('../', import.meta.url), {
   // Secret token for triggering cron HTTP endpoints
   CRON_JOB_SECRET: Env.schema.string.optional(),
 
+  /*
+  |----------------------------------------------------------
+  | Hub OTA (connect-hub). Off unless HUB_ENABLED=true: nothing is
+  | sent to the hub and existing behaviour is unchanged.
+  |----------------------------------------------------------
+  */
+  HUB_ENABLED: Env.schema.boolean.optional(),
+  HUB_BASE_URL: Env.schema.string.optional(),
+  HUB_TIMEOUT_MS: Env.schema.number.optional(),
+  // Delay used to group changes before pushing availability (ms).
+  HUB_PUSH_DEBOUNCE_MS: Env.schema.number.optional(),
+  // Days of availability sent by the nightly full resync.
+  HUB_RESYNC_DAYS: Env.schema.number.optional(),
+
+  // Read the Channex booking feed every minute for every hotel linked to
+  // Channex (start/scheduler.ts). Off by default: enable it only if no
+  // external scheduler already calls POST /api/channex/sync/bookings/:hotelId.
+  CHANNEX_BOOKING_SYNC_CRON: Env.schema.boolean.optional(),
+
+  // Channex API. CHANNEX_API_KEY is required for any Channex call (there is no
+  // key in the code any more). CHANNEX_BASE_URL defaults to the staging API.
+  CHANNEX_API_KEY: Env.schema.string.optional(),
+  CHANNEX_BASE_URL: Env.schema.string.optional(),
+  CHANNEX_URL: Env.schema.string.optional(),
+
+  // Nightly full availability push to Channex (03:15). Off by default: it
+  // overwrites values edited by hand in the Channex dashboard.
+  CHANNEX_AVAILABILITY_RESYNC: Env.schema.boolean.optional(),
+  CHANNEX_RESYNC_DAYS: Env.schema.number.optional(),
+
   // Enjoy Rental integration API key
   ENJOY_RENTAL_API_KEY: Env.schema.string.optional(),
 

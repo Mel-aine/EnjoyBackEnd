@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, hasMany, manyToMany, beforeSave } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, hasMany, manyToMany, beforeSave, afterDelete } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import User from '#models/user'
 import ReservationServiceProduct from '#models/hotel'
@@ -18,6 +18,7 @@ import ReservationType from './reservation_type.js'
 import PaymentMethod from './payment_method.js'
 import MarketCode from './market_code.js'
 import ReservationHook from '../hooks/reservation_hooks.js'
+import { hubOnReservationChange } from '../services/hub_hooks.js'
 export enum ReservationStatus {
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
@@ -268,6 +269,16 @@ export default class Reservation extends BaseModel {
 
   @column({ columnName: 'channex_booking_id' })
   declare channexBookingId: string | null
+
+  // Booking id in the Hub OTA when the reservation comes from a local OTA (KasaStay…).
+  @column({ columnName: 'hub_booking_id' })
+  declare hubBookingId: number | null
+
+  @column({ columnName: 'hub_revision_seq' })
+  declare hubRevisionSeq: number | null
+
+  @column.dateTime({ columnName: 'hub_cancel_synced_at' })
+  declare hubCancelSyncedAt: DateTime | null
 
   // OTA integration fields
   @column({ columnName: 'ota_reservation_code' })
@@ -690,6 +701,10 @@ export default class Reservation extends BaseModel {
   @beforeSave()
   public static notifyAfterUpdate(reservation: Reservation) {
     try {
+      // On creation the model is not saved yet (the hook then failed with
+      // "Cannot lazy load relationship for an unpersisted model instance");
+      // new reservations are pushed by notifyAvailabilityOnCreate instead.
+      if (!reservation.$isPersisted) return
       console.log('reservation', reservation.$original)
       ReservationHook.notifyAvailabilityOnUpdate(reservation, {
         arrivedDate: reservation.$original.arrivedDate,
@@ -699,4 +714,14 @@ export default class Reservation extends BaseModel {
     }
   }
 
+  // Hub OTA: no-op unless HUB_ENABLED=true; never throws.
+  @beforeSave()
+  public static hubSyncOnSave(reservation: Reservation) {
+    hubOnReservationChange(reservation)
+  }
+
+  @afterDelete()
+  public static hubSyncOnDelete(reservation: Reservation) {
+    hubOnReservationChange(reservation)
+  }
 }

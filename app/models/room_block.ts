@@ -1,11 +1,12 @@
 import { DateTime } from 'luxon'
-import { BaseModel, column, belongsTo, afterSave, afterDelete, afterCreate } from '@adonisjs/lucid/orm'
+import { BaseModel, column, belongsTo, afterSave, afterDelete, afterCreate, beforeSave } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import Room from './room.js'
 import User from './user.js'
 import Hotel from './hotel.js'
 import RoomType from './room_type.js'
 import ChannexBlockService from '#services/channex_block_service'
+import { hubOnRoomBlockChange } from '#services/hub_hooks'
 
 export default class RoomBlock extends BaseModel {
   @column({ isPrimary: true })
@@ -134,5 +135,16 @@ export default class RoomBlock extends BaseModel {
   get isCurrent(): boolean {
     const now = DateTime.now()
     return now >= this.blockFromDate && now <= this.blockToDate
+  }
+
+  // Hub OTA: no-op unless HUB_ENABLED=true; never throws.
+  @beforeSave()
+  static hubSyncOnSave(roomBlock: RoomBlock) {
+    hubOnRoomBlockChange(roomBlock)
+  }
+
+  @afterDelete()
+  static hubSyncOnDelete(roomBlock: RoomBlock) {
+    hubOnRoomBlockChange(roomBlock)
   }
 }
