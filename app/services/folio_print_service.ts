@@ -4,6 +4,7 @@ import Reservation from '#models/reservation'
 import Hotel from '#models/hotel'
 import FolioTransaction from '#models/folio_transaction'
 import ReservationsController from '#controllers/reservations_controller'
+import TaxRate from '#models/tax_rate'
 
 import { TransactionCategory, TransactionType } from '../enums.js'
 import logger from '@adonisjs/core/services/logger'
@@ -53,6 +54,7 @@ export interface FolioPrintData {
     percentage: number | null
     amount: number | null
     postingType: string
+    type: 'vat' | 'service_fee' | 'city_tax' | null
     appliesToRoomRate: boolean
     appliesToFnb: boolean
     appliesToOtherServices: boolean
@@ -67,6 +69,27 @@ export interface FolioPrintData {
     phone?: string
     email?: string
     taxId?: string
+  }
+  roomSummary?: Array<{
+    roomTypeName: string
+    rooms: number
+    nights: number
+    nightlyRate: number
+    discountPerNight: number
+    grossTotal: number
+    discountTotal: number
+    netTotal: number
+  }>
+  taxSummary?: {
+    vatRate: number
+    cityTaxPerNight: number
+    totalNights: number
+    grandTotalNet: number
+    cityTaxTotal: number
+    taxableBase: number
+    amountHT: number
+    vatAmount: number
+    balanceVerification: number
   }
   currency: {
     code: string
@@ -188,6 +211,7 @@ export class FolioPrintService {
       logo: folio.hotel.logoUrl || undefined,
       registrationNumber: folio.hotel.registrationNo1,
       rcNumber: folio.hotel.registrationNo2,
+      invoiceTemplate: (folio.hotel.printEmailSettings as any)?.invoiceTemplate || 'standard'
     }
 
     // Prepare reservation information
@@ -281,6 +305,8 @@ export class FolioPrintService {
       totals,
       taxRates,
       billingAddress,
+      roomSummary: this.buildRoomSummary(reservation, totals),
+      taxSummary: await this.buildTaxSummary(reservation, totals, taxRates),
       currency,
       printInfo
     }
@@ -372,6 +398,8 @@ export class FolioPrintService {
       totals,
       taxRates,
       billingAddress,
+      roomSummary: this.buildRoomSummary(reservation, totals),
+      taxSummary: await this.buildTaxSummary(reservation, totals, taxRates),
       currency,
       printInfo,
     }
@@ -455,8 +483,8 @@ export class FolioPrintService {
         logo: reservation.hotel.logoUrl || undefined,
         registrationNumber: reservation.hotel.registrationNo1,
         rcNumber: reservation.hotel.registrationNo2,
-        notices: reservation.hotel.notices || {}
-
+        notices: reservation.hotel.notices || {},
+        invoiceTemplate: (reservation.hotel.printEmailSettings as any)?.invoiceTemplate || 'standard'
       }
       const transactions: Array<Record<string, any>> = []
       let balance = 0
@@ -600,6 +628,8 @@ export class FolioPrintService {
         totals,
         taxRates,
         billingAddress,
+        roomSummary: this.buildRoomSummary(reservation, totals),
+        taxSummary: await this.buildTaxSummary(reservation, totals, taxRates),
         currency,
         printInfo
       }
@@ -608,6 +638,169 @@ export class FolioPrintService {
     }
   }
 
+
+  /**
+   * Group reservation rooms by room type for the detailed invoice summary.
+   */
+  private buildRoomSummary(reservation: Reservation, totals: any) {
+    const groups = new Map<
+      string,
+      {
+        roomTypeName: string
+        rooms: number
+        nights: number
+        nightlyRate: number
+        discountPerNight: number
+        grossTotal: number
+        discountTotal: number
+        netTotal: number
+      }
+    >()
+    const reservationRooms = (reservation as any).reservationRooms || []
+    const defaultNights = Number(reservation.numberOfNights || 1)
+
+    for (const reservationRoom of reservationRooms) {
+      if (!reservationRoom) continue
+      const roomTypeName =
+        reservationRoom.roomType?.roomTypeName ||
+        (reservation as any).roomType?.roomTypeName ||
+        'Room'
+      const nights = Number(reservationRoom.nights || defaultNights)
+      const nightlyRate = Number(
+        reservationRoom.rateAmount ?? reservationRoom.roomRate ?? 0
+      )
+      const grossTotal = Number(
+        reservationRoom.totalRoomCharges ?? nightlyRate * nights
+      )
+      const discountTotal = Number(reservationRoom.discountAmount || 0)
+      const netTotal = Number(
+        reservationRoom.netAmount ?? grossTotal - discountTotal
+      )
+
+      const existing = groups.get(roomTypeName)
+      if (existing) {
+        existing.rooms += 1
+        existing.nights += nights
+        existing.grossTotal += grossTotal
+        existing.discountTotal += discountTotal
+        existing.netTotal += netTotal
+        existing.discountPerNight =
+          existing.nights > 0 ? existing.discountTotal / existing.nights : 0
+      } else {
+        groups.set(roomTypeName, {
+          roomTypeName,
+          rooms: 1,
+          nights,
+          nightlyRate,
+          discountPerNight: nights > 0 ? discountTotal / nights : 0,
+          grossTotal,
+          discountTotal,
+          netTotal,
+        })
+      }
+    }
+
+    if (groups.size === 0) {
+      const grandTotal = Number(totals?.totalChargesWithTaxes || 0)
+      return [
+        {
+          roomTypeName: (reservation as any).roomType?.roomTypeName || 'Room',
+          rooms: 1,
+          nights: defaultNights,
+          nightlyRate: defaultNights > 0 ? grandTotal / defaultNights : grandTotal,
+          discountPerNight: 0,
+          grossTotal: grandTotal,
+          discountTotal: Number(totals?.totalDiscounts || 0),
+          netTotal: grandTotal,
+        },
+      ]
+    }
+
+    return Array.from(groups.values())
+  }
+
+   private async loadHotelTaxRates(reservation: Reservation) {
+    const hotelId = (reservation as any).hotelId ?? (reservation as any).hotel?.id
+    if (!hotelId) return []
+
+    const rows = await TaxRate.query().where('hotelId', hotelId).where('isActive', true)
+
+    return rows.map((taxRate) => ({
+      id: taxRate.taxRateId,
+      name: taxRate.taxName,
+      shortName: taxRate.shortName,
+      percentage: taxRate.percentage,
+      amount: taxRate.amount,
+      postingType: taxRate.postingType,
+      type: taxRate.type,
+      appliesToRoomRate: taxRate.appliesToRoomRate,
+      appliesToFnb: taxRate.appliesToFnb,
+      appliesToOtherServices: taxRate.appliesToOtherServices,
+    }))
+  }
+  /**
+   * Compute the fiscal breakdown displayed on the detailed invoice.
+   */
+    private async buildTaxSummary(reservation: Reservation, totals: any, taxRates: any[] = []) {
+      // Fusion : taxes de l'hôtel (table tax_rates) + taxes liées aux chambres, sans doublon
+      const hotelRates = await this.loadHotelTaxRates(reservation)
+      const byId = new Map<number, any>()
+      for (const rate of [...hotelRates, ...(taxRates || [])]) {
+        if (rate && !byId.has(rate.id)) byId.set(rate.id, rate)
+      }
+      const rates = Array.from(byId.values())
+
+
+      const findRate = (type: 'vat' | 'city_tax', fallbackPattern: RegExp) =>
+        rates.find((rate: any) => {
+          const label = `${rate?.name || ''} ${rate?.shortName || ''}`
+          const matchesType = rate?.type === type || (!rate?.type && fallbackPattern.test(label))
+          return matchesType && rate?.appliesToRoomRate !== false
+        })
+
+      const vatTaxRate = findRate('vat', /tva|vat/i)
+      const cityTaxRate = findRate('city_tax', /city|séjour|sejour|tourist|tourisme/i)
+
+      const reservationRooms = (reservation as any).reservationRooms || []
+      const roomNights = reservationRooms.reduce(
+        (sum: number, reservationRoom: any) =>
+          sum + Number(reservationRoom?.nights || reservation.numberOfNights || 1),
+        0
+      )
+      const totalNights = roomNights || Number(reservation.numberOfNights || 1)
+      const roomRateTotal = reservationRooms.reduce((sum: number, reservationRoom: any) => {
+        const nights = Number(reservationRoom?.nights || reservation.numberOfNights || 1)
+        const nightlyRate = Number(reservationRoom?.rateAmount ?? reservationRoom?.roomRate ?? 0)
+        return sum + nightlyRate * nights
+      }, 0)
+      const averageNightlyRate = totalNights > 0 ? roomRateTotal / totalNights : 0
+
+      const vatRate = Number(vatTaxRate?.percentage || 0)
+      const cityTaxPerNight = cityTaxRate
+        ? cityTaxRate.postingType === 'flat_amount'
+          ? Number(cityTaxRate.amount || 0)
+          : averageNightlyRate * (Number(cityTaxRate.percentage || 0) / 100)
+        : 0
+
+      const grandTotalNet = Number(totals?.totalChargesWithTaxes || 0)
+      const cityTaxTotal = cityTaxPerNight * totalNights
+      const taxableBase = Math.max(grandTotalNet - cityTaxTotal, 0)
+      const amountHT = vatRate > 0 ? taxableBase / (1 + vatRate / 100) : taxableBase
+      const vatAmount = taxableBase - amountHT
+      const balanceVerification = amountHT + vatAmount + cityTaxTotal
+
+      return {
+        vatRate,
+        cityTaxPerNight,
+        totalNights,
+        grandTotalNet,
+        cityTaxTotal,
+        taxableBase,
+        amountHT,
+        vatAmount,
+        balanceVerification,
+      }
+  }
 
   /**
    * Calculate balance summary from folio transactions
@@ -676,6 +869,7 @@ export class FolioPrintService {
             percentage: taxRate.percentage,
             amount: taxRate.amount,
             postingType: taxRate.postingType,
+            type: taxRate.type,
             appliesToRoomRate: taxRate.appliesToRoomRate,
             appliesToFnb: taxRate.appliesToFnb,
             appliesToOtherServices: taxRate.appliesToOtherServices
