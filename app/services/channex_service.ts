@@ -26,7 +26,10 @@ export class ChannexService {
   private channexUrl:string
 
   constructor() {
-    this.apiKey = env.get('CHANNEX_API_KEY') || 'uDLcCU1XVVraqAVOGfKNvXqVaTyE73jnmDXdPr8gufyR0SF91CQeIwJjWm2qrOX3'
+    // No key in the code: it used to fall back to a key committed in the
+    // repository. Without CHANNEX_API_KEY, every Channex call now fails with
+    // a clear error (see the request interceptor below).
+    this.apiKey = env.get('CHANNEX_API_KEY') || ''
     this.baseURL = env.get('CHANNEX_BASE_URL') || 'https://staging.channex.io/api/v1'
     this.channexUrl =env.get('CHANNEX_URL') || 'https://app.channex.io'
 
@@ -44,6 +47,9 @@ export class ChannexService {
     // Add request interceptor for logging
     this.client.interceptors.request.use(
       (config) => {
+        if (!this.apiKey) {
+          return Promise.reject(new Error('Channex API Error: CHANNEX_API_KEY is not configured')) as any
+        }
         console.log('Channex API Request', {
           method: config.method?.toUpperCase(),
           url: config.url,
@@ -107,6 +113,49 @@ export class ChannexService {
     const response: AxiosResponse<T> = await this.client.post(endpoint, data)
     return response.data
   }
+
+  /**
+   * POST that is safe to replay (ARI pushes carry absolute values), retried on
+   * network errors, timeouts, 429 and 5xx. A lost push would otherwise leave
+   * Channex (and Booking.com...) with wrong availability until the next change.
+   * Pushes of one property are sent one after the other (retries included):
+   * a retried older push can never land after a newer one and overwrite it.
+   * Any other error is thrown at once, as before.
+   */
+  private async postIdempotent<T>(endpoint: string, data?: any, propertyId?: string): Promise<T> {
+    const key = `${endpoint}|${propertyId ?? ''}`
+    const previous = ChannexService.queues.get(key) ?? Promise.resolve()
+    const run = previous.catch(() => {}).then(() => this.postWithRetry<T>(endpoint, data))
+    ChannexService.queues.set(key, run)
+    run
+      .finally(() => {
+        if (ChannexService.queues.get(key) === run) ChannexService.queues.delete(key)
+      })
+      .catch(() => {})
+    return run
+  }
+
+  /** In-process send queues of ARI pushes, per endpoint and property. */
+  private static queues = new Map<string, Promise<unknown>>()
+
+  private async postWithRetry<T>(endpoint: string, data?: any): Promise<T> {
+    const delays = ChannexService.retryDelaysMs
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.post<T>(endpoint, data)
+      } catch (error: any) {
+        const message = String(error?.message ?? '')
+        const retryable =
+          message.includes('No response received') || /\((429|5\d\d)\)/.test(message)
+        if (!retryable || attempt >= delays.length) throw error
+        console.warn('Channex API retry', { endpoint, attempt: attempt + 1, message })
+        await new Promise((resolve) => setTimeout(resolve, delays[attempt]))
+      }
+    }
+  }
+
+  /** Waits between retries of ARI pushes (tests may shorten them). */
+  static retryDelaysMs: number[] = [2000, 5000, 10000]
 
   /**
    * Generic PUT request method
@@ -460,7 +509,7 @@ export class ChannexService {
   }) 
   {
     console.log('data.updateAvailability@@@@', availabilityData)
-    return this.post(`/availability`, availabilityData)
+    return this.postIdempotent(`/availability`, availabilityData, propertyId)
   }
 
   /**
@@ -515,7 +564,7 @@ export class ChannexService {
   async updateRestrictions(propertyId: string, restrictionsData: {
     "values": RestrictionData[]
   }) {
-    return this.post(`/restrictions`, restrictionsData)
+    return this.postIdempotent(`/restrictions`, restrictionsData, propertyId)
   }
   /**
    * Bulk update ARI (Availability, Rates, and Restrictions)

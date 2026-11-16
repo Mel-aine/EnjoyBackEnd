@@ -1720,7 +1720,9 @@ router
         router.post('/properties/:propertyId/ari', channexController.bulkUpdateARI.bind(channexController))
       })
       .prefix('channex')
-      .use(middleware.checkSubscription('channel_manager'));
+      .use(middleware.checkSubscription('channel_manager'))
+      // The hotel in the URL (:propertyId / :hotelId) must be one of the user's.
+      .use(middleware.channexPropertyAccess());
 
     /// audit trails
     router
@@ -1791,6 +1793,8 @@ router
 
 router.get('/api/webhooks/whatsapp', whatsappWebhookController.verify.bind(whatsappWebhookController))
 router.post('/api/webhooks/whatsapp', whatsappWebhookController.handle.bind(whatsappWebhookController))
+// Hub OTA (connect-hub): signed with the hotel's webhook secret; 404 unless HUB_ENABLED=true.
+router.post('/api/webhooks/hub/:hotelId', '#controllers/hub_webhooks_controller.handle')
 router.post('/api/channex/sync/bookings/:hotelId', channexMigrationController.syncBookingsFromChannex.bind(channexMigrationController))
   .use(middleware.apiKey())
 

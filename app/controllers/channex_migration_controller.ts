@@ -285,6 +285,24 @@ export default class ChannexMigrationController {
         })
       }
 
+      // Step 6: Initial availability and prices. Without them a freshly
+      // migrated property shows 0 rooms everywhere in Channex (so nothing to
+      // sell on Booking.com) until someone pushes ARI by hand.
+      try {
+        const { default: ChannexAvailabilityResync } = await import('#services/channex_availability_resync')
+        const availability = await ChannexAvailabilityResync.resyncHotel(parseInt(hotelId), 365)
+        const rates = await ChannexAvailabilityResync.pushBaseRates(parseInt(hotelId), 365)
+        migrationResults.steps.initialAri = {
+          status: availability.status === 'failed' || rates.status === 'failed' ? 'failed' : 'completed',
+          data: { availability, rates },
+          error: availability.status === 'failed' ? availability.message : rates.status === 'failed' ? rates.message : null,
+        }
+        if (migrationResults.steps.initialAri.status === 'failed') migrationResults.totalErrors++
+      } catch (ariError: any) {
+        migrationResults.steps.initialAri = { status: 'failed', data: null, error: ariError?.message }
+        migrationResults.totalErrors++
+      }
+
       migrationResults.status = migrationResults.totalErrors > 0 ? 'completed_with_errors' : 'completed'
       migrationResults.endTime = new Date()
 
@@ -484,8 +502,17 @@ export default class ChannexMigrationController {
       }
 
       // Map hotel data to Channex hotel policy format
+      // Channex refuses a policy (422) without its property and the check-in /
+      // check-out time windows.
+      const checkIn = String(hotel.checkInTime || '14:00').slice(0, 5)
+      const checkOut = String(hotel.checkOutTime || '12:00').slice(0, 5)
       const hotelPolicyData = {
         "hotel_policy": {
+          property_id: hotel.channexPropertyId,
+          checkin_from_time: checkIn,
+          checkin_to_time: '23:00',
+          checkout_from_time: '06:00',
+          checkout_to_time: checkOut,
           title: `${hotel.hotelName} Policy`,
           currency: hotel.currencyCode || 'XAF',
           is_adults_only: false,
@@ -506,7 +533,7 @@ export default class ChannexMigrationController {
       }
 
       // Create hotel policy in Channex
-      const channexHotelPolicy: any = await this.channexService.createHotelPolicy(hotelPolicyData)
+      const channexHotelPolicy: any = await this.channexService.createHotelPolicy(hotelPolicyData.hotel_policy)
 
       console.log('Hotel policy migrated successfully', {
         localHotelId: hotelId,
