@@ -2197,7 +2197,7 @@ export default class PdfGenerationService {
 
                 @page {
                     size: A4;
-                    margin: 10mm;
+                    /* No margin here: it overrides the print margins and prevents page numbers in the footer. */
                 }
 
                 body {
@@ -2750,7 +2750,7 @@ export default class PdfGenerationService {
 
                 @page {
                     size: A4;
-                    margin: 10mm;
+                    /* No margin here: it overrides the print margins and prevents page numbers in the footer. */
                 }
 
                 body {
@@ -3439,7 +3439,7 @@ export default class PdfGenerationService {
 
                 @page {
                     size: A4;
-                    margin: 10mm;
+                    /* No margin here: it overrides the print margins and prevents page numbers in the footer. */
                 }
 
                 body {
