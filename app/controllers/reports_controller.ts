@@ -877,7 +877,7 @@ export default class ReportsController {
           bottom: '1cm',
           left: '1cm',
         },
-      })
+      }, { data: reportData, template: 'exportToPDF' })
 
       response.header('Content-Type', 'application/pdf')
       response.header('Content-Disposition', `attachment; filename="${filename}"`)
@@ -1171,7 +1171,7 @@ export default class ReportsController {
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
 
       // Generate PDF
-      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {}, { data: { dailyReservationCounts, hotel, startDate, endDate }, template: 'generateMonthlyOccupancyPdf' })
 
       // Set response headers
       response.header('Content-Type', 'application/pdf')
@@ -1252,7 +1252,7 @@ export default class ReportsController {
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
 
       // Generate PDF
-      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {}, { data: { hotel, reportDate, roomsByStatus: safeRoomsByStatus, auditDetails }, template: 'generateRoomStatusReportPdf' })
 
       // Set response headers
       const fileName = `room-status-report-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
@@ -1916,7 +1916,7 @@ export default class ReportsController {
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
 
       // Generate PDF
-      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {}, { data: { hotel, reportDate, auditDetails, sectionsData }, template: 'generateNightAuditReportPdf' })
 
       // Set response headers
       const fileName = `night-audit-report-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
@@ -5867,7 +5867,7 @@ export default class ReportsController {
         headerTemplate,
         footerTemplate,
         printBackground: true,
-      })
+      }, { data: { hotel, reportDate, sectionsData, auditDetails }, template: 'generateManagementReportPdf' })
 
       // Set response headers
       const fileName = `management-report-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
@@ -8283,7 +8283,7 @@ export default class ReportsController {
         headerTemplate,
         footerTemplate,
         printBackground: true,
-      })
+      }, { data: { hotel, revenueData, reportDate }, template: 'generateRevenueByRateTypePdf' })
 
       const filename = `revenue-by-rate-type-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
 
@@ -8665,7 +8665,7 @@ export default class ReportsController {
         headerTemplate,
         footerTemplate,
         printBackground: true,
-      })
+      }, { data: { hotel, revenueData, reportDate }, template: 'generateRevenueByRoomTypePdf' })
 
       const filename = `revenue-by-room-type-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
 
@@ -9361,7 +9361,7 @@ export default class ReportsController {
 
       // Generate PDF
       const { default: PdfGenerationService } = await import('#services/pdf_generation_service')
-      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {}, { data: { hotel, revenueData, reportDate }, template: 'generateMonthlyRevenuePdf' })
 
       const filename = `monthly-revenue-${reportDate.toFormat('yyyy-MM')}.pdf`
 
@@ -9925,7 +9925,7 @@ export default class ReportsController {
         headerTemplate,
         footerTemplate,
         printBackground: true,
-      })
+      }, { data: reportData, template: 'generateDailyOperationsReportPdf' })
 
       const filename = `daily-operations-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
       return response
@@ -10799,7 +10799,7 @@ export default class ReportsController {
 
       // Generate PDF
       const { default: PdfGenerationService } = await import('#services/pdf_service')
-      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent)
+      const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {}, { data: { hotel, revenueData, reportDate, auditDetails }, template: 'generateDailyRevenuePdf' })
 
       const filename = `daily-revenue-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
 
@@ -11021,7 +11021,7 @@ export default class ReportsController {
           bottom: '1cm',
           left: '1cm',
         },
-      })
+      }, { data: roomAvailabilityData, template: 'generateRoomAvailabilityPdf' })
 
       const timestamp = DateTime.now().toFormat('yyyy-MM-dd_HH-mm-ss')
       const filename = `room_availability_${dateFrom}_to_${dateTo}_${timestamp}.pdf`
@@ -12961,7 +12961,7 @@ export default class ReportsController {
           bottom: '20px',
           left: '20px',
         },
-      })
+      }, { data: receiptData, template: 'printReceipt', reference: { type: 'receipt', id: transaction.id, number: transaction.receiptNumber ?? String(transaction.transactionNumber) } })
 
       // Set response headers for PDF
       response.header('Content-Type', 'application/pdf')
@@ -13039,7 +13039,7 @@ export default class ReportsController {
           bottom: '20px',
           left: '20px',
         },
-      })
+      }, { data: receiptData, template: 'printInvoice' })
 
       // Set response headers for PDF
       response.header('Content-Type', 'application/pdf')
@@ -13107,7 +13107,7 @@ export default class ReportsController {
       const pdfBuffer = await PdfService.generatePdfFromHtml(html, {
         format: 'A4',
         margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' },
-      })
+      }, { data: receiptData, template: 'printCompanyReceipt', reference: { type: 'receipt', id: transaction.id, number: transaction.receiptNumber ?? String(transaction.transactionNumber) } })
 
       response.header('Content-Type', 'application/pdf')
       response.header(
@@ -13225,7 +13225,7 @@ export default class ReportsController {
       const pdfBuffer = await PdfService.generatePdfFromHtml(html, {
         format: 'A4',
         margin: { top: '20px', right: '20px', bottom: '20px', left: '20px' },
-      })
+      }, { data: voucherData, template: 'printCompanyVoucher' })
 
       response.header('Content-Type', 'application/pdf')
       const filename = `company-voucher-company-${companyId}-${fromDate.toFormat('yyyyLLdd')}-${toDate.toFormat('yyyyLLdd')}.pdf`
@@ -13345,7 +13345,7 @@ export default class ReportsController {
           bottom: '10px',
           left: '10px',
         },
-      })
+      }, { data: receiptData, template: 'printIncidentalInvoice' })
 
       // Set response headers for PDF
       response.header('Content-Type', 'application/pdf')
@@ -13511,7 +13511,7 @@ export default class ReportsController {
         headerTemplate,
         footerTemplate,
         printBackground: true,
-      })
+      }, { data: { hotel, mealPlansData, reportDate }, template: 'generateMealPlanReportPdf' })
 
       // Set response headers
       const fileName = `meal-plan-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM-dd')}.pdf`
@@ -13783,7 +13783,7 @@ export default class ReportsController {
           bottom: '10px',
           left: '10px',
         },
-      })
+      }, { data: receiptData, template: 'printPosReceipt', reference: { type: 'receipt', id: transaction.id, number: transaction.receiptNumber ?? String(transaction.transactionNumber) } })
 
       // Set response headers for PDF
       response.header('Content-Type', 'application/pdf')
@@ -13944,7 +13944,7 @@ export default class ReportsController {
         headerTemplate,
         footerTemplate,
         printBackground: true,
-      })
+      }, { data: { hotel, data, from, to }, template: 'generateCreditLedgerPaymentsPdf' })
 
       const fileName = `credit-ledger-${hotel.hotelName.replace(/\s+/g, '-')}.pdf`
       response.header('Content-Type', 'application/pdf')
@@ -14686,7 +14686,7 @@ export default class ReportsController {
         headerTemplate: '<div></div>',
         footerTemplate,
         printBackground: true,
-      })
+      }, { data: { hotel, content, reportDate }, template: 'generateBusinessAnalysisReportPdf' })
 
       const fileName = `business-analysis-${hotel.hotelName.replace(/\s+/g, '-')}-${reportDate.toFormat('yyyy-MM')}.pdf`
       response.header('Content-Type', 'application/pdf')
@@ -14850,7 +14850,7 @@ async generateServicesReportByPeriodPdf({ request, response, auth }: HttpContext
       headerTemplate,
       footerTemplate,
       printBackground: true,
-    })
+    }, { data: { hotel, sectionsData, start, end }, template: 'generateServicesReportByPeriodPdf' })
 
     const fileName = `services-report-${hotel.hotelName.replace(/\s+/g, '-')}-${start.toFormat('yyyy-MM-dd')}_${end.toFormat('yyyy-MM-dd')}.pdf`
     response.header('Content-Type', 'application/pdf')
@@ -15040,7 +15040,7 @@ async generateCityLedgerListPdf({ request, response, auth }: HttpContext) {
       headerTemplate,
       footerTemplate,
       printBackground: true,
-    })
+    }, { data: { hotel, data, from, to }, template: 'generateCityLedgerListPdf' })
 
     const fileName = `city-ledger-list-${hotel.hotelName.replace(/\s+/g, '-')}-${to.toFormat('yyyy-MM-dd')}.pdf`
     response.header('Content-Type', 'application/pdf')
@@ -15297,7 +15297,7 @@ async generateCityLedgerDetailsPdf({ request, response, auth }: HttpContext) {
       headerTemplate,
       footerTemplate,
       printBackground: true,
-    })
+    }, { data: { hotel, data, companyId, from, to }, template: 'generateCityLedgerDetailsPdf' })
 
     const fileName = `city-ledger-details-${hotel.hotelName.replace(/\s+/g, '-')}-${to.toFormat('yyyy-MM-dd')}.pdf`
     response.header('Content-Type', 'application/pdf')
@@ -15573,7 +15573,7 @@ async generateGuestReservationsPdf({ request, response, auth }: HttpContext) {
       headerTemplate,
       footerTemplate,
       printBackground: true,
-    })
+    }, { data: { hotel, data, from, to }, template: 'generateGuestReservationsPdf' })
 
     const fileName = `guest-reservations-${hotel.hotelName.replace(/\s+/g, '-')}-${to.toFormat('yyyy-MM-dd')}.pdf`
     response.header('Content-Type', 'application/pdf')

@@ -581,7 +581,7 @@ export default class InvoiceSubscriptionsController {
     const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(html, {
       format: 'A4',
       margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
-    })
+    }, { data: invoiceData, template: 'printPdf', hotelId: invoice.hotelId })
 
     response.header('Content-Type', 'application/pdf')
     response.header('Content-Disposition', `inline; filename="invoice-${invoice.invoiceNumber}.pdf"`)
@@ -793,7 +793,7 @@ export default class InvoiceSubscriptionsController {
     const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(html, {
       format: 'A4',
       margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
-    })
+    }, { data: receiptData, template: 'printReceiptPdf', hotelId: invoice.hotelId })
 
     response.header('Content-Type', 'application/pdf')
     response.header('Content-Disposition', `inline; filename="receipt-${receipt.receiptNumber}.pdf"`)
@@ -1030,7 +1030,7 @@ export default class InvoiceSubscriptionsController {
     return PdfGenerationService.generatePdfFromHtml(html, {
       format: 'A4',
       margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
-    })
+    }, { data: invoiceData, template: 'buildInvoicePdfBuffer', hotelId: invoice.hotelId })
   }
 
   private async buildReceiptPdfBuffer(invoice: InvoiceSubscription, receipt: InvoiceSubscriptionReceipt) {
@@ -1134,7 +1134,7 @@ export default class InvoiceSubscriptionsController {
     return PdfGenerationService.generatePdfFromHtml(html, {
       format: 'A4',
       margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
-    })
+    }, { data: receiptData, template: 'buildReceiptPdfBuffer', hotelId: invoice.hotelId })
   }
 
   private async sendInvoiceAndReceiptByEmail(invoiceId: number, receiptId: number, user: any) {

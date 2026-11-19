@@ -98,7 +98,7 @@ export default class SubscriptionRenewalService {
     return PdfGenerationService.generatePdfFromHtml(html, {
       format: 'A4',
       margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' },
-    })
+    }, { data: invoiceData, template: 'buildInvoicePdfBuffer', hotelId: invoice.hotelId })
   }
 
   private async getInvoiceLinesForPdf(invoice: InvoiceSubscription) {

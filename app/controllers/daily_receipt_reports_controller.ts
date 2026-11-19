@@ -993,7 +993,7 @@ export default class DailyReceiptReportsController {
         displayHeaderFooter: true,
         footerTemplate,
         printBackground: true
-      })
+      }, { data: reportData, template: 'generatedailyRevenueReportPdf' })
 
       // Set response headers
       const fileName = `daily-revenue-report-${dateType}-${hotel.hotelName.replace(/\s+/g, '-')}-${startDateTime.toFormat('yyyy-MM-dd')}-to-${endDateTime.toFormat('yyyy-MM-dd')}.pdf`
@@ -1252,7 +1252,7 @@ export default class DailyReceiptReportsController {
         headerTemplate,
         footerTemplate,
         printBackground: true
-      })
+      }, { data: reportData, template: 'generateSummaryPdf' })
 
       // Set response headers
       const fileName = `daily-receipt-summary-${hotel.hotelName.replace(/\s+/g, '-')}-${startDateTime.toFormat('yyyy-MM-dd')}-to-${endDateTime.toFormat('yyyy-MM-dd')}.pdf`
@@ -1460,7 +1460,7 @@ export default class DailyReceiptReportsController {
           headerTemplate,
           footerTemplate,
           printBackground: true
-        })
+        }, { data: reportData, template: 'generateDailyRefundDetailPdf' })
 
         // Set response headers
         const fileName = `daily-refund-detail-${hotel.hotelName.replace(/\s+/g, '-')}-${startDateTime.toFormat('yyyy-MM-dd')}-to-${endDateTime.toFormat('yyyy-MM-dd')}.pdf`
@@ -1673,7 +1673,7 @@ export default class DailyReceiptReportsController {
         headerTemplate,
         footerTemplate,
         printBackground: true
-      })
+      }, { data: reportData, template: 'generateDetailPdf' })
 
       // Set response headers
       const fileName = `daily-receipt-detail-${hotel.hotelName.replace(/\s+/g, '-')}-${startDateTime.toFormat('yyyy-MM-dd')}-to-${endDateTime.toFormat('yyyy-MM-dd')}.pdf`

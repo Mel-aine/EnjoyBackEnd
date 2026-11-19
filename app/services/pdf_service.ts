@@ -1,5 +1,6 @@
 //import puppeteer from 'puppeteer'
-import htmlPdf from 'html-pdf-node'
+import DocumentAuditService from '#services/document_audit_service'
+import type { PrintMetadata } from '#services/print_layout'
 import { DateTime } from 'luxon'
 
 export interface InvoiceData {
@@ -57,6 +58,7 @@ export interface InvoiceItem {
 }
 
 export interface PdfOptions {
+  audit?: PrintMetadata
   format?: 'A4' | 'Letter' | 'Legal'
   orientation?: 'portrait' | 'landscape'
   margin?: {
@@ -104,7 +106,8 @@ export default class PdfService {
 
   static async generatePdfFromHtml(
   html: string,
-  options: PdfOptions = {}
+  options: PdfOptions = {},
+  metadata: PrintMetadata = {}
 ): Promise<Buffer> {
   const file = { content: html }
 
@@ -121,7 +124,7 @@ export default class PdfService {
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
   }
 
-  const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
+  const pdfBuffer = await DocumentAuditService.generate(file, pdfOptions, { ...options.audit, ...metadata })
   return Buffer.from(pdfBuffer)
 }
 
@@ -133,7 +136,7 @@ export default class PdfService {
     options: PdfOptions = {}
   ): Promise<Buffer> {
     const html = this.generateIncidentalInvoiceHtml(invoiceData)
-    return this.generatePdfFromHtml(html, options)
+    return this.generatePdfFromHtml(html, { ...options, audit: { data: invoiceData, documentType: 'incidental_invoice', ...options.audit } })
   }
 
   /**
@@ -144,7 +147,7 @@ export default class PdfService {
     options: PdfOptions = {}
   ): Promise<Buffer> {
     const html = this.generateInvoiceHtml(invoiceData)
-    return this.generatePdfFromHtml(html, options)
+    return this.generatePdfFromHtml(html, { ...options, audit: { data: invoiceData, documentType: 'invoice', ...options.audit } })
   }
 
   /**
@@ -155,7 +158,7 @@ export default class PdfService {
     options: PdfOptions = {}
   ): Promise<Buffer> {
     const html = this.generateReceiptHtml(receiptData)
-    return this.generatePdfFromHtml(html, options)
+    return this.generatePdfFromHtml(html, { ...options, audit: { data: receiptData, documentType: 'receipt', ...options.audit } })
   }
 
   /**

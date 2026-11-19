@@ -1,5 +1,9 @@
 import env from '#start/env'
 import { defineConfig } from '@adonisjs/lucid'
+import { installAuditQueryContext } from '#services/audit_query_context'
+import { auditEnabled } from '#services/audit_enabled'
+
+if (auditEnabled()) installAuditQueryContext()
 
 const dbConfig = defineConfig({
   connection: 'postgres',

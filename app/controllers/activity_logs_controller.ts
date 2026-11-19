@@ -2,6 +2,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 import ActivityLog from '#models/activity_log'
 import Guest from '#models/guest'
 import { DateTime } from 'luxon'
+import { getAuditContext, redactAuditValue } from '#services/audit_context'
 
 
 export default class ActivityLogsController {
@@ -21,17 +22,19 @@ export default class ActivityLogsController {
   /**
    * Create a new activity log.
    */
-  public async store({ request, response }: HttpContext) {
-    const payload :any = request.only([
-      'userId',
-      'username',
-      'action',
-      'entityType',
-      'entityId',
-      'description',
-      'changes',
-      'createdBy',
-    ])
+  public async store({ request, response, auth }: HttpContext) {
+    // A client report must never impersonate a server/database audit event.
+    const payload: any = {
+      userId: auth.user?.id ?? null,
+      username: auth.user?.fullName ?? 'Anonymous',
+      createdBy: auth.user?.id ?? null,
+      action: 'CLIENT_REPORTED_EVENT',
+      entityType: 'ClientEvent',
+      description: String(request.input('description') ?? '').slice(0, 4000),
+      meta: redactAuditValue({ ...getAuditContext(), reported: request.only([
+        'action', 'entityType', 'entityId', 'changes',
+      ]) }),
+    }
 
     // Automatically add request-specific details
     payload.ipAddress = request.ip()
@@ -65,21 +68,8 @@ export default class ActivityLogsController {
   /**
    * Update an existing activity log.
    */
-  public async update({ params, request, response }: HttpContext) {
-    const payload = request.only(['description', 'changes'])
-
-    try {
-      const log = await ActivityLog.findOrFail(params.id)
-      log.merge(payload)
-      await log.save()
-      return response.ok(log)
-    } catch (error) {
-      console.error('Error updating activity log:', error)
-      if (error.code === 'E_ROW_NOT_FOUND') {
-        return response.notFound({ message: 'Activity log not found' })
-      }
-      return response.badRequest({ message: 'Failed to update activity log', error: error.message })
-    }
+  public async update({ response }: HttpContext) {
+    return response.status(405).send({ message: 'Audit history is append-only and cannot be edited' })
   }
 
   /**
@@ -169,8 +159,8 @@ export default class ActivityLogsController {
     changes: log.changes || {},
     meta: log.meta || {},
     timestamp: log.createdAt.toISO(),
-    userId: log.user?.id,
-    userName: [log.user?.firstName, log.user?.lastName].filter(Boolean).join(' ') || null,
+    userId: log.userId,
+    userName: log.username || [log.user?.firstName, log.user?.lastName].filter(Boolean).join(' ') || null,
     ipAddress: log.ipAddress || null,
     userAgent: log.userAgent || null,
     entityId: log.entityId,

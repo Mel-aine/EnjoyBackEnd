@@ -199,6 +199,7 @@ export class FolioPrintService {
     // Prepare hotel information
     const hotel = {
       id: folio.hotel.id,
+      timezone: folio.hotel.timezone,
       name: folio.hotel.hotelName,
       address: folio.hotel.address || '',
       city: folio.hotel.city || '',
@@ -471,6 +472,7 @@ export class FolioPrintService {
       // Prepare hotel information
       const hotel = {
         id: reservation.hotel.id,
+        timezone: reservation.hotel.timezone,
         name: reservation.hotel.hotelName,
         address: reservation.hotel.address || '',
         city: reservation.hotel.city || '',

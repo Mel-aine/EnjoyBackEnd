@@ -20,7 +20,10 @@ export default class AuditTrailController {
         perPage = 20,
         sortBy = 'createdAt',
         order = 'desc',
-        includeRelated = true
+        includeRelated = true,
+        operationId,
+        timeZone,
+        event,
       } = request.all()
 
       // Validate required parameters
@@ -58,7 +61,10 @@ export default class AuditTrailController {
         perPage: Number(perPage),
         sortBy,
         order,
-        includeRelated: includeRelated !== false
+        includeRelated: includeRelated !== false && includeRelated !== 'false',
+        operationId,
+        timeZone,
+        event,
       }
 
       const auditTrail = await AuditTrailService.getAuditTrail(options)

@@ -1,9 +1,11 @@
-// @ts-ignore
-import htmlPdf from 'html-pdf-node'
+import { printTimestamp } from '#services/audit_clock'
 import sanitizeHtml from 'sanitize-html'
 import { FolioPrintData } from '#services/folio_print_service'
+import DocumentAuditService from '#services/document_audit_service'
+import type { PrintMetadata } from '#services/print_layout'
 
 export interface PdfOptions {
+  audit?: PrintMetadata
   format?: 'A4' | 'A3' | 'Letter'
   orientation?: 'portrait' | 'landscape'
   margin?: {
@@ -180,7 +182,7 @@ export default class PdfGenerationService {
       }
 
       const file = { content: htmlContent }
-      const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
+      const pdfBuffer = await DocumentAuditService.generate(file, pdfOptions, { data: folioPrintData, documentType: 'folio', template: 'folio', language: 'en', ...options.audit })
 
       return pdfBuffer
     } catch (error) {
@@ -192,7 +194,7 @@ export default class PdfGenerationService {
   /**
    * Generate PDF from HTML content
    */
-  static async generatePdfFromHtml(htmlContent: string, options: PdfOptions = {}): Promise<Buffer> {
+  static async generatePdfFromHtml(htmlContent: string, options: PdfOptions = {}, metadata: PrintMetadata = {}): Promise<Buffer> {
     try {
       // Default PDF options
       const defaultOptions = {
@@ -230,7 +232,7 @@ export default class PdfGenerationService {
       }
 
       const file = { content: htmlContent }
-      const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
+      const pdfBuffer = await DocumentAuditService.generate(file, pdfOptions, { ...options.audit, ...metadata })
 
       return pdfBuffer
     } catch (error) {
@@ -282,7 +284,7 @@ export default class PdfGenerationService {
       }
 
       const file = { content: htmlContent }
-      const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
+      const pdfBuffer = await DocumentAuditService.generate(file, pdfOptions, { data: folioPrintData, documentType: 'voucher', template: 'booking', language: 'en', ...options.audit })
 
       return pdfBuffer
     } catch (error) {
@@ -333,7 +335,7 @@ export default class PdfGenerationService {
       }
 
       const file = { content: htmlContent }
-      const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
+      const pdfBuffer = await DocumentAuditService.generate(file, pdfOptions, { data: folioPrintData, documentType: 'voucher', template: 'booking', language: 'fr', ...options.audit })
 
       return pdfBuffer
     } catch (error) {
@@ -583,7 +585,7 @@ export default class PdfGenerationService {
                             <span class="label">Invoice No.</span> : ${folio.folioNumber || 'N/A'}
                         </td>
                         <td style="width: 25%;">
-                            <span class="label">Date:</span> ${new Date().toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            <span class="label">Date:</span> ${printTimestamp(new Date(), (hotel as any).timezone || 'Africa/Douala')}
                         </td>
                     </tr>
                 </table>
@@ -1656,7 +1658,7 @@ export default class PdfGenerationService {
       }
 
       const file = { content: htmlContent }
-      const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
+      const pdfBuffer = await DocumentAuditService.generate(file, pdfOptions, { data: folioPrintData, documentType: 'invoice', template: 'standard', language: 'en', ...options.audit })
 
       return pdfBuffer
     } catch (error) {
@@ -1706,7 +1708,7 @@ export default class PdfGenerationService {
       }
 
       const file = { content: htmlContent }
-      const pdfBuffer = await htmlPdf.generatePdf(file, pdfOptions)
+      const pdfBuffer = await DocumentAuditService.generate(file, pdfOptions, { data: folioPrintData, documentType: 'invoice', template: 'standard', language: 'fr', ...options.audit })
 
       return pdfBuffer
     } catch (error) {
@@ -1957,7 +1959,7 @@ export default class PdfGenerationService {
                         </td>
                         <td style="width: 25%;"></td>
                         <td style="width: 25%;">
-                            <div><span class="font-bold">Date:</span> ${new Date().toLocaleString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+                            <div><span class="font-bold">Date:</span> ${printTimestamp(new Date(), (hotel as any).timezone || 'Africa/Douala')}</div>
                             ${extras ? extras.fiscal : ''}
                         </td>
                     </tr>
@@ -2504,7 +2506,7 @@ export default class PdfGenerationService {
                         </td>
                         <td style="width: 25%;"></td>
                         <td style="width: 25%;">
-                            <div><span class="font-bold">Date:</span> ${new Date().toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>
+                            <div><span class="font-bold">Date:</span> ${printTimestamp(new Date(), (hotel as any).timezone || 'Africa/Douala')}</div>
                             ${extras ? extras.fiscal : ''}
                         </td>
                     </tr>
@@ -3161,7 +3163,7 @@ export default class PdfGenerationService {
       }
 
       const file = { content: htmlContent }
-      return await htmlPdf.generatePdf(file, pdfOptions as any)
+      return await DocumentAuditService.generate(file, pdfOptions, { data, documentType: 'guest_history', template: 'guest_history', language: french ? 'fr' : 'en', ...options.audit })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       throw new Error(`Failed to generate Guest History PDF: ${message}`)
@@ -3653,14 +3655,16 @@ export default class PdfGenerationService {
     folioPrintData: FolioPrintData,
     options: PdfOptions = {}
   ): Promise<Buffer> {
-    return this.renderDetailedHotelPdf(folioPrintData, options, false)
+    const pdf = await this.renderDetailedHotelPdf(folioPrintData, options, false)
+    return pdf
   }
 
   static async generateDetailedHotelPdfFrench(
     folioPrintData: FolioPrintData,
     options: PdfOptions = {}
   ): Promise<Buffer> {
-    return this.renderDetailedHotelPdf(folioPrintData, options, true)
+    const pdf = await this.renderDetailedHotelPdf(folioPrintData, options, true)
+    return pdf
   }
 
   private static async renderDetailedHotelPdf(
@@ -3706,7 +3710,7 @@ export default class PdfGenerationService {
       }
 
       const file = { content: htmlContent }
-      return await htmlPdf.generatePdf(file, pdfOptions as any)
+      return await DocumentAuditService.generate(file, pdfOptions, { data: folioPrintData, documentType: 'invoice', template: 'detailed', language: french ? 'fr' : 'en', ...options.audit })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       throw new Error(`Failed to generate detailed hotel PDF: ${message}`)

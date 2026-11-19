@@ -159,7 +159,7 @@ export default class ReservationReportsController {
         displayHeaderFooter: true,
         footerTemplate,
         printBackground: true
-      })
+      }, { data: reportData, template: 'generateArrivalListPdf' })
 
       const fileName = `arrival-list-${reportData.hotelDetails.hotelName.replace(/\s+/g, '-')}-${DateTime.fromISO(payload.startDate).toFormat('yyyy-MM-dd')}.pdf`
       response.header('Content-Type', 'application/pdf')
@@ -223,7 +223,7 @@ export default class ReservationReportsController {
         displayHeaderFooter: true,
         footerTemplate,
         printBackground: true
-      })
+      }, { data: reportData, template: 'generateDepartureListPdf' })
 
       const fileName = `departure-list-${reportData.hotelDetails.hotelName.replace(/\s+/g, '-')}-${DateTime.fromISO(payload.startDate).toFormat('yyyy-MM-dd')}.pdf`
       response.header('Content-Type', 'application/pdf')
@@ -294,7 +294,7 @@ export default class ReservationReportsController {
         displayHeaderFooter: true,
         footerTemplate,
         printBackground: true
-      })
+      }, { data: reportData, template: 'generateCancelledListPdf' })
 
       const fileName = `cancelled-reservations-${reportData.hotelDetails.hotelName.replace(/\s+/g, '-')}-${DateTime.fromISO(payload.startDate).toFormat('yyyy-MM-dd')}.pdf`
       response.header('Content-Type', 'application/pdf')
@@ -364,7 +364,7 @@ export default class ReservationReportsController {
         displayHeaderFooter: true,
         footerTemplate,
         printBackground: true
-      })
+      }, { data: reportData, template: 'generateVoidListPdf' })
 
       const fileName = `void-reservations-${reportData.hotelDetails.hotelName.replace(/\s+/g, '-')}-${DateTime.fromISO(payload.startDate).toFormat('yyyy-MM-dd')}.pdf`
       response.header('Content-Type', 'application/pdf')

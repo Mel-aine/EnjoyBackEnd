@@ -376,7 +376,7 @@ export default class RoomStatusReportsController {
         headerTemplate,
         footerTemplate,
         printBackground: true
-      })
+      }, { data: templateData, template: 'generatePdfBuffer' })
 
       return pdfBuffer
 

@@ -4,6 +4,7 @@ import MailService from '#services/mail_service'
 import FolioPrintService from '#services/folio_print_service'
 import PdfGenerationService from '#services/pdf_generation_service'
 import LoggerService from '#services/logger_service'
+import DocumentAuditService from '#services/document_audit_service'
 
 export default class ReservationSendEmailService {
 
@@ -55,18 +56,28 @@ export default class ReservationSendEmailService {
     name: hotel.hotelName,
     }
 
-    await MailService.sendWithAttachments({
-      to: recipientEmail,
-      from,
-      subject: `Your Invoice – ${reservation.reservationNumber}`,
-      html: `
+    const delivery = { pdf: pdfBuffer, hotelId: hotel.id, reservationId,
+      folioId, channel: 'email' as const, recipient: recipientEmail, actorId: sentBy }
+    await DocumentAuditService.recordDelivery({ ...delivery, status: 'attempted' })
+    try {
+      await MailService.sendWithAttachments({
+        to: recipientEmail,
+        from,
+        subject: `Your Invoice – ${reservation.reservationNumber}`,
+        html: `
         <p>Dear ${reservation.guest?.displayName ?? 'Guest'},</p>
         <p>Please find attached your invoice for reservation <strong>${reservation.reservationNumber}</strong>.</p>
         <p>Thank you for staying with us at <strong>${hotel.hotelName}</strong>.</p>
         <p>Best regards,<br/>${hotel.hotelName}</p>
       `,
-      attachments: [{ filename, content: pdfBuffer, contentType: 'application/pdf' }],
-    })
+        attachments: [{ filename, content: pdfBuffer, contentType: 'application/pdf' }],
+      })
+    } catch (error) {
+      await DocumentAuditService.recordDelivery({ ...delivery, status: 'failed', error: error.message })
+      throw error
+    }
+    // Provider acceptance is not proof that the recipient opened/received it.
+    await DocumentAuditService.recordDelivery({ ...delivery, status: 'accepted' })
 
     await LoggerService.log({
       actorId: sentBy || reservation.createdBy || 0,

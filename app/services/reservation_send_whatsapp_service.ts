@@ -3,6 +3,7 @@ import FolioPrintService from '#services/folio_print_service'
 import PdfGenerationService from '#services/pdf_generation_service'
 import WhatsAppNotificationService from '#services/whatsapp_notification_service'
 import { DateTime } from 'luxon'
+import DocumentAuditService from '#services/document_audit_service'
 
 export default class ReservationSendWhatsappService {
 
@@ -34,7 +35,7 @@ export default class ReservationSendWhatsappService {
 
     if (!phone) throw new Error('No phone number available')
 
-    const invoiceUrl = await this.generateInvoiceUrl({
+    const document = await this.createInvoiceDocument({
       reservationId,
       reservationNumber: reservation.reservationNumber ?? '',
       folioId: folioId ?? null,
@@ -42,15 +43,29 @@ export default class ReservationSendWhatsappService {
     })
 
     const whatsapp = new WhatsAppNotificationService()
-    await whatsapp.notifyInvoiceReady({
-      hotelId: reservation.hotelId,
-      reservationId: reservation.id,
-      recipientPhoneNumber: phone,
-      recipientName: guest?.displayName ?? 'Client',
-      hotelName: reservation.hotel?.hotelName ?? '',
-      reservationNumber: reservation.reservationNumber ?? '',
-      invoiceUrl,
+    const delivery = { pdf: document.pdf, hotelId: reservation.hotelId, reservationId,
+      folioId, channel: 'whatsapp' as const, recipient: phone }
+    await DocumentAuditService.recordDelivery({ ...delivery, status: 'attempted' })
+    let result
+    try {
+      result = await whatsapp.notifyInvoiceReady({
+        hotelId: reservation.hotelId,
+        reservationId: reservation.id,
+        recipientPhoneNumber: phone,
+        recipientName: guest?.displayName ?? 'Client',
+        hotelName: reservation.hotel?.hotelName ?? '',
+        reservationNumber: reservation.reservationNumber ?? '',
+        invoiceUrl: document.url,
+      })
+    } catch (error) {
+      await DocumentAuditService.recordDelivery({ ...delivery, status: 'failed', error: error.message })
+      throw error
+    }
+    await DocumentAuditService.recordDelivery({ ...delivery,
+      status: result.delivered ? 'accepted' : 'failed',
+      error: result.delivered ? undefined : String(result.reason ?? 'provider rejected request'),
     })
+    if (!result.delivered) throw new Error(String(result.reason ?? 'WhatsApp invoice send failed'))
   }
 
   // ── Envoyer le voucher par WhatsApp 
@@ -129,6 +144,15 @@ export default class ReservationSendWhatsappService {
     folioId?: number | null
     language?: 'fr' | 'en'
   }): Promise<string> {
+    return (await this.createInvoiceDocument(input)).url
+  }
+
+  private static async createInvoiceDocument(input: {
+    reservationId: number
+    reservationNumber: string
+    folioId?: number | null
+    language?: 'fr' | 'en'
+  }): Promise<{ url: string; pdf: Buffer }> {
     const { language = 'fr' } = input
     const folioPrintData = await FolioPrintService.generateHotelFolioPrintData(
       input.reservationId,
@@ -149,6 +173,6 @@ export default class ReservationSendWhatsappService {
     }
 
     const filename = `invoice-${input.reservationNumber}-${DateTime.now().toFormat('yyyyMMddHHmmss')}.pdf`
-    return this.savePdfToTemp(pdfBuffer, filename)
+    return { url: await this.savePdfToTemp(pdfBuffer, filename), pdf: pdfBuffer }
   }
 }

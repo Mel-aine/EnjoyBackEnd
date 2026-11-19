@@ -11,6 +11,8 @@ import db from '@adonisjs/lucid/services/db'
 import LoggerService from '#services/logger_service'
 import logger from '@adonisjs/core/services/logger'
 import { generateTransactionCode } from '../utils/generate_guest_code.js'
+import { auditEnabled } from '#services/audit_enabled'
+import { formatFolioReference } from '#services/audit_clock'
 
 export interface CreateFolioData {
   hotelId: number
@@ -1753,6 +1755,11 @@ export default class FolioService {
    * Generate unique folio number
    */
   private static async generateFolioNumber(hotelId: number, trx?: TransactionClientContract, reservationRoomId?: number): Promise<string> {
+    if (auditEnabled()) {
+      // PostgreSQL sequences do not rewind on rollback or when a folio is deleted.
+      const allocation = await (trx ?? db).rawQuery("SELECT nextval('public.folio_reference_sequence')::text AS ordinal")
+      return formatFolioReference(hotelId, allocation.rows[0].ordinal, reservationRoomId)
+    }
     // Use a more robust approach to ensure uniqueness
     let attempts = 0
     const maxAttempts = 10

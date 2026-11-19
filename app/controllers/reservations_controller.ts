@@ -3318,9 +3318,9 @@ export default class ReservationsController extends CrudController<typeof Reserv
       setImmediate(() => {
         LoggerService.log({
           actorId: auth.user?.id!,
-          action: 'CREATE',
-          entityType: 'Reservation',
-          entityId: ctx.auth?.user?.id!,
+          action: 'RESERVATION_CREATE_REQUESTED',
+          entityType: 'Hotel',
+          entityId: data.hotel_id,
           hotelId: data.hotel_id,
           description: 'Reservation Request',
           meta: request.body(),
@@ -5806,6 +5806,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       }
 
       // Store original room information for audit
+      const auditRoomBefore = currentReservationRoom.serialize()
       const originalRoomInfo = {
         roomId: currentReservationRoom.roomId,
         roomNumber: currentReservationRoom.room.roomNumber,
@@ -5895,6 +5896,14 @@ export default class ReservationsController extends CrudController<typeof Reserv
 
 
 
+        await LoggerService.log({
+          actorId: auth.user!.id, action: 'ROOM_MOVE', entityType: 'Reservation',
+          entityId: reservation.id, hotelId: reservation.hotelId, reservationId: reservation.id,
+          description: 'Room assignment changed before check-in or on arrival day', ctx,
+          changes: LoggerService.extractChanges(auditRoomBefore, currentReservationRoom.serialize()),
+          meta: { fromRoom: originalRoomInfo, toRoom: { roomId: newRoomId, roomNumber: newRoom.roomNumber },
+            overwriteRoomRate, reason, effectiveDate: moveDate.toISO(), reservationRoomId: currentReservationRoom.id },
+        }, trx)
         await trx.commit()
 
         return response.ok({
@@ -8105,7 +8114,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
         format: 'A4',
         orientation: 'portrait',
-      })
+      }, { data: { guest, reservation, totalsSummary }, template: 'printGuestCard', reservationId: reservation.id, hotelId: reservation.hotelId, reference: { type: 'reservation', id: reservation.id, number: reservation.reservationNumber } })
 
       // Set response headers for PDF
       response.header('Content-Type', 'application/pdf')
@@ -8649,6 +8658,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       // target one or several rooms of a reservation (e.g. a group booking).
       // When no room id is provided, the scope remains the one from `applyOn`.
       // -------------------------------
+      const auditBefore = reservation.serialize()
       const requestedRoomIds = payload.roomIds ?? []
       const hasExplicitTransactions = (payload.transactionIds?.length ?? 0) > 0
       const hasRoomSelection = requestedRoomIds.length > 0
@@ -9372,6 +9382,14 @@ export default class ReservationsController extends CrudController<typeof Reserv
           })
         }
       }
+      await LoggerService.log({
+        actorId: auth.user!.id, action: 'RESERVATION_DETAILS_UPDATED', entityType: 'Reservation',
+        entityId: reservation.id, reservationId: reservation.id, hotelId: reservation.hotelId, ctx,
+        description: 'Reservation prices, room details and dependent amounts recalculated',
+        changes: LoggerService.extractChanges(auditBefore, reservation.serialize()),
+        meta: { payload, updatedTransactions: roomChargeTransactionsToUpdate.map(t => t.id),
+          updatedRooms: Array.from(updatedReservationRoomIds) },
+      }, trx)
       await trx.commit()
       // Notifications
       setImmediate(async () => {
@@ -9547,6 +9565,12 @@ export default class ReservationsController extends CrudController<typeof Reserv
         updatedIds.push(t.id)
       }
 
+      await LoggerService.log({
+        actorId: auth.user!.id, action: 'ROOM_CHARGE_DISCOUNT_APPLIED', entityType: 'Reservation',
+        entityId: reservation.id, reservationId: reservation.id, hotelId: reservation.hotelId,
+        description: 'Discount applied to room charge transactions',
+        meta: { payload, transactionIds: updatedIds }, ctx: { request },
+      }, trx)
       await trx.commit()
       return response.ok({
         message: 'Discount applied to room charge transactions',
@@ -9798,7 +9822,7 @@ export default class ReservationsController extends CrudController<typeof Reserv
       const pdfBuffer = await PdfGenerationService.generatePdfFromHtml(htmlContent, {
         format: 'A4',
         orientation: 'portrait',
-      })
+      }, { data: { guest, reservation }, template: 'printGuestPolice', reservationId: reservation.id, hotelId: reservation.hotelId, reference: { type: 'reservation', id: reservation.id, number: reservation.reservationNumber } })
 
       // Set response headers for PDF
       response.header('Content-Type', 'application/pdf')

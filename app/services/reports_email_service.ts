@@ -198,7 +198,7 @@ export default class ReportsEmailService {
     const addPdf = async (title: string, htmlBody: string, options?: any) => {
       const pdf = await PdfGenerationService.generatePdfFromHtml(`
       ${htmlBody}
-      `, options)
+      `, options, { data: { title, htmlBody, auditDate: dateStr }, template: 'night_audit_report', hotelId: hotel.id })
       attachments.push({ filename: `${title}_${dateStr}.pdf`, content: pdf, contentType: 'application/pdf' })
     }
 
@@ -477,7 +477,7 @@ export default class ReportsEmailService {
    */
   private async generateTodayReportPdf(data: any): Promise<Buffer> {
     const htmlContent = this.buildTodayReportHtml(data);
-    return await PdfGenerationService.generatePdfFromHtml(htmlContent);
+    return await PdfGenerationService.generatePdfFromHtml(htmlContent, {}, { data: data, template: 'generateTodayReportPdf' });
   }
 
   /**

@@ -1,6 +1,8 @@
 import ActivityLog from '#models/activity_log'
 import User from '#models/user'
 import type { HttpContext } from '@adonisjs/core/http'
+import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
+import { auditChanges, getAuditContext, redactAuditValue } from '#services/audit_context'
 
 interface ChangeLog {
   [key: string]: { old: any; new: any }
@@ -38,6 +40,7 @@ interface LogActivityData {
   changes?: any
   reservationId?: number | null
   ctx?: HttpContext
+  meta?: Record<string, any>
 }
 
 export default class LoggerService {
@@ -46,8 +49,8 @@ export default class LoggerService {
     ipAddress?: string | null
     userAgent?: string | null
   }): { ipAddress: string | null; userAgent: string | null } {
-    let ipAddress: string | null = data.ipAddress ?? null
-    let userAgent: string | null = data.userAgent ?? null
+    let ipAddress: string | null = data.ipAddress ?? getAuditContext()?.ipAddress ?? null
+    let userAgent: string | null = data.userAgent ?? getAuditContext()?.userAgent ?? null
 
     if (!ipAddress || !userAgent) {
       const req = data.ctx?.request
@@ -73,7 +76,7 @@ export default class LoggerService {
     return { ipAddress, userAgent }
   }
 
-  public static async log(data: LogData) {
+  public static async log(data: LogData, trx?: TransactionClientContract) {
     try {
       const actor = await User.find(data.actorId)
 
@@ -91,15 +94,16 @@ export default class LoggerService {
         entityId,
         reservationId: data.reservationId ?? null,
         description: data.description,
-        changes: data.changes ?? null,
-        meta: data.meta ?? null,
-        hotelId: data.hotelId ?? null,
+        changes: redactAuditValue(data.changes),
+        meta: redactAuditValue({ ...getAuditContext(), ...data.meta }),
+        hotelId: data.hotelId ?? getAuditContext()?.hotelId ?? null,
         createdBy: data.actorId,
         ipAddress,
         userAgent,
-      })
+      }, trx ? { client: trx } : undefined)
     } catch (error) {
       console.error('🔴 Failed to create activity log:', error)
+      if (trx) throw error
     }
   }
 
@@ -126,9 +130,9 @@ export default class LoggerService {
           entityId: Number(data.entityId),
           reservationId: data.reservationId ?? null,
           description: data.description,
-          changes: data.changes ?? null,
-          meta: data.meta ?? null,
-          hotelId: data.hotelId ?? null,
+          changes: redactAuditValue(data.changes),
+          meta: redactAuditValue({ ...getAuditContext(), ...data.meta }),
+          hotelId: data.hotelId ?? getAuditContext()?.hotelId ?? null,
           createdBy: data.actorId,
           ipAddress,
           userAgent,
@@ -170,8 +174,9 @@ export default class LoggerService {
         entityId,
         reservationId: data.reservationId ?? null,
         description: data.description || null,
-        changes: (data.details ?? data.changes) ?? null,
-        hotelId: data.hotelId ?? null,
+        changes: redactAuditValue(data.details ?? data.changes),
+        meta: redactAuditValue({ ...getAuditContext(), ...data.meta }),
+        hotelId: data.hotelId ?? getAuditContext()?.hotelId ?? null,
         createdBy: userId,
         ipAddress,
         userAgent,
@@ -184,6 +189,7 @@ export default class LoggerService {
       }
     } catch (error) {
       console.error('🔴 Failed to create activity log:', error)
+      if (trx) throw error
     }
   }
 
@@ -191,17 +197,6 @@ export default class LoggerService {
    *  Compare les champs pour log les changements
    */
   public static extractChanges<T extends object>(oldData: T, newData: T): ChangeLog {
-    const changes: ChangeLog = {}
-
-    for (const key of Object.keys(newData)) {
-      const oldValue = (oldData as any)[key]
-      const newValue = (newData as any)[key]
-
-      if (oldValue !== newValue) {
-        changes[key] = { old: oldValue, new: newValue }
-      }
-    }
-
-    return changes
+    return auditChanges(oldData, newData)
   }
 }

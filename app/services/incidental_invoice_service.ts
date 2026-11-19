@@ -1010,6 +1010,9 @@ export default class IncidentalInvoiceService {
       notes: invoice.notes || undefined
     }
 
-    return await PdfService.generateIncidentalInvoicePdf(invoiceData)
+    return await PdfService.generateIncidentalInvoicePdf(invoiceData, { audit: {
+      hotelId: invoice.hotelId,
+      reference: { type: 'incidental_invoice', id: invoice.id, number: invoice.invoiceNumber },
+    } })
   }
 }
