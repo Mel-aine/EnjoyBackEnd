@@ -102,6 +102,16 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   /*
   |----------------------------------------------------------
+  | Enjoy Connectivity Hub control API (docs/enjoy-control-api.md)
+  |----------------------------------------------------------
+  */
+  // Shared secret; the hub keeps the same value in ENJOY_CONTROL_KEY.
+  HUB_CONTROL_KEY: Env.schema.string.optional(),
+  // Base URL of the hub PMS API, used to push catalog and ARI back.
+  HUB_API_URL: Env.schema.string.optional(),
+
+  /*
+  |----------------------------------------------------------
   | Variables for configuring WhatsApp integration
   |----------------------------------------------------------
   */

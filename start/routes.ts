@@ -55,6 +55,7 @@ import CompanyFolioController from '#controllers/company_folio_controller'
 import NightAuditController from '#controllers/night_audit_controller'
 import ChannexMigrationController from '#controllers/channex_migration_controller'
 import ChannexController from '#controllers/channex_controller'
+import HubControlController from '#controllers/hub_control_controller'
 import ConfigurationController from '#controllers/configuration_controller'
 import AuditTrailController from '#controllers/audit_trail_controller'
 import EmailAccountsController from '#controllers/email_accounts_controller'
@@ -1967,4 +1968,28 @@ router.post('/whatsapp/templates/refresh', whatsappTemplatesController.refreshSt
   .use(middleware.permission({ permissions: ['console_whatsapp_view'] }))
 
 }).prefix('api/console').use(middleware.auth({ guards: ['api'] }))
+
+/*
+|--------------------------------------------------------------------------
+| Enjoy Connectivity Hub — control API
+|--------------------------------------------------------------------------
+| Called by the hub with `Authorization: Bearer <HUB_CONTROL_KEY>`.
+| Contract: connect-hub-backend/docs/enjoy-control-api.md
+*/
+const hubControlController = new HubControlController()
+
+router
+  .group(() => {
+    router.get('/health', hubControlController.health.bind(hubControlController))
+    router.get('/hotels', hubControlController.hotels.bind(hubControlController))
+    router.get('/hotels/:hotelId/status', hubControlController.status.bind(hubControlController))
+    router.post('/hotels/:hotelId/link', hubControlController.link.bind(hubControlController))
+    router.post(
+      '/hotels/:hotelId/sync-catalog',
+      hubControlController.syncCatalog.bind(hubControlController)
+    )
+    router.post('/hotels/:hotelId/push-ari', hubControlController.pushAri.bind(hubControlController))
+    router.post('/hotels/:hotelId/unlink', hubControlController.unlink.bind(hubControlController))
+  })
+  .prefix('api/hub-control')
 

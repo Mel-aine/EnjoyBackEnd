@@ -592,6 +592,31 @@ export default class Hotel extends BaseModel {
     }
   }
 
+  /*
+  |--------------------------------------------------------------------------
+  | Enjoy Connectivity Hub link (see app/services/hub_service.ts)
+  |--------------------------------------------------------------------------
+  */
+  @column({ columnName: 'hub_property_id' })
+  declare hubPropertyId: number | null
+
+  // Never serialized: the console must not be able to read the hub key.
+  @column({ columnName: 'hub_api_key', serializeAs: null })
+  declare hubApiKey: string | null
+
+  @column({ columnName: 'hub_webhook_url' })
+  declare hubWebhookUrl: string | null
+
+  @column.dateTime({ columnName: 'hub_linked_at' })
+  declare hubLinkedAt: DateTime | null
+
+  @column.dateTime({ columnName: 'hub_last_push_at' })
+  declare hubLastPushAt: DateTime | null
+
+  get isHubLinked(): boolean {
+    return Boolean(this.hubPropertyId && this.hubApiKey)
+  }
+
   @beforeCreate()
   static async generatePosApiKey(hotel: Hotel) {
     if (!hotel.posApiKey) {
