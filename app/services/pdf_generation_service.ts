@@ -1911,7 +1911,7 @@ export default class PdfGenerationService {
 
     // Pagination: répartir les transactions équitablement entre les pages
     const FULL_PAGE_ROWS = 15
-    const LAST_PAGE_ROWS = extras ? 4 : 8
+    const LAST_PAGE_ROWS = extras ? 4 : 12
     const transactionPages = this.splitTransactionPages(
       transactions ?? [],
       LAST_PAGE_ROWS,
@@ -2458,7 +2458,7 @@ export default class PdfGenerationService {
 
     // Pagination : répartir les transactions équitablement entre les pages
     const FULL_PAGE_ROWS = 15
-    const LAST_PAGE_ROWS = extras ? 4 : 8
+    const LAST_PAGE_ROWS = extras ? 4 : 12
     const transactionPages = this.splitTransactionPages(
       transactions ?? [],
       LAST_PAGE_ROWS,

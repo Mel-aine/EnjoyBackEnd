@@ -42,10 +42,8 @@ export function numberedPdfOptions(
   if (!/^IMP-[0-9]+$/.test(number)) throw new Error('Invalid print number')
   const existingFooter = options.footerTemplate || ''
   // Do not print page numbers twice when the document already has its own.
-  const hasPageNumbers = /class=["']pageNumber["']/.test(existingFooter)
-  const pageInfo = hasPageNumbers
-    ? ''
-    : ' · Page <span class="pageNumber"></span> / <span class="totalPages"></span>'
+  // const hasPageNumbers = /class=["']pageNumber["']/.test(existingFooter)
+   const pageInfo = ''
   const clock = generatedAt ? footerClock(generatedAt) : null
   const bottom = options.margin?.bottom
   const match = String(bottom ?? '').match(/^([\d.]+)\s*(mm|cm|px|in|pt)?$/)
