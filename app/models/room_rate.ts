@@ -10,6 +10,7 @@ import BusinessSource from './business_source.js'
 import User from './user.js'
 import MealPlan from './meal_plan.js'
 import ChannexRatePlanService from '#app/services/channex_rate_plan_service'
+import { hubOnRoomRateChange } from '../services/hub_hooks.js'
 
 export default class RoomRate extends BaseModel {
   private static channexRatePlanService = new ChannexRatePlanService()
@@ -239,6 +240,10 @@ export default class RoomRate extends BaseModel {
    */
   @afterSave()
   static async syncWithChannex(roomRate: RoomRate) {
+    // Hub OTA: a price typed in enjoy reaches the hub without waiting for a
+    // manual push. Never throws and never blocks the save.
+    hubOnRoomRateChange(roomRate)
+
     const hotel = await roomRate.related('hotel').query().first()
     
     if (hotel && hotel.channexPropertyId) {

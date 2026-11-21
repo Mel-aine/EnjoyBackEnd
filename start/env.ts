@@ -109,6 +109,10 @@ export default await Env.create(new URL('../', import.meta.url), {
   HUB_PUSH_DEBOUNCE_MS: Env.schema.number.optional(),
   // Days of availability sent by the nightly full resync.
   HUB_RESYNC_DAYS: Env.schema.number.optional(),
+  // Shared secret of the hub control API (/api/hub-control, see
+  // connect-hub-backend/docs/enjoy-control-api.md). Same value as
+  // ENJOY_CONTROL_KEY in the hub. Empty/unset disables the control API.
+  HUB_CONTROL_KEY: Env.schema.string.optional(),
 
   // Read the Channex booking feed every minute for every hotel linked to
   // Channex (start/scheduler.ts). Off by default: enable it only if no

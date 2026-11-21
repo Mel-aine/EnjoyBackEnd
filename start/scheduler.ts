@@ -98,6 +98,11 @@ cron.schedule('30 2 * * *', async () => {
     const { default: HubAvailabilitySync } = await import('#services/hub_availability_sync')
     const results = await HubAvailabilitySync.resyncAll()
     logger.info({ results }, '[Hub] nightly availability resync done')
+
+    // Prices too: a rate changed by a bulk SQL update bypasses the save hook.
+    const { default: HubRateSync } = await import('#services/hub_rate_sync')
+    const rateResults = await HubRateSync.resyncAll()
+    logger.info({ results: rateResults }, '[Hub] nightly rate resync done')
   } catch (err) {
     logger.error({ err }, '[Hub] nightly availability resync failed')
   } finally {

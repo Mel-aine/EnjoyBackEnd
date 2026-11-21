@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon'
 import logger from '@adonisjs/core/services/logger'
+import env from '#start/env'
 import Hotel from '#models/hotel'
 import RoomRate from '#models/room_rate'
 import LoggerService from '#services/logger_service'
@@ -23,6 +24,9 @@ import HubService, { isHubEnabled, type HubRateItem } from '#services/hub_servic
 const DAY_CODES = ['mo', 'tu', 'we', 'th', 'fr', 'sa', 'su']
 /** Upper bound of one mirrored range. */
 const MAX_DAYS = 730
+
+/** One pending debounced push per room rate id. */
+const pendingRatePushes = new Map<number, NodeJS.Timeout>()
 
 function toBool(value: unknown): boolean | undefined {
   if (value === undefined || value === null || value === '') return undefined
@@ -132,6 +136,72 @@ export default class HubRateSync {
         )
       })
     } catch {}
+  }
+
+  /**
+   * Debounced push of one room rate after it was saved in enjoy. Never throws,
+   * never waits, and does nothing while the hub is off or the rate is unmapped.
+   */
+  static pushRateLater(roomRate: RoomRate) {
+    try {
+      if (!isHubEnabled() || !roomRate?.hubRatePlanId) return
+      const id = Number(roomRate.id)
+      if (!Number.isInteger(id) || id <= 0) return
+      const delay = Math.max(
+        200,
+        Number(env.get('HUB_PUSH_DEBOUNCE_MS', 1500) ?? 1500)
+      )
+      const pending = pendingRatePushes.get(id)
+      if (pending) clearTimeout(pending)
+      pendingRatePushes.set(
+        id,
+        setTimeout(() => {
+          pendingRatePushes.delete(id)
+          HubRateSync.pushForRate(id).catch((err) =>
+            logger.error({ err, roomRateId: id }, '[Hub] rate push failed')
+          )
+        }, delay)
+      )
+    } catch {}
+  }
+
+  /**
+   * Sends one room rate over its own date range (its date, its effective
+   * period, or the next 365 days) so a price typed in enjoy reaches the hub
+   * without waiting for a full `hub:push-rates`.
+   */
+  static async pushForRate(roomRateId: number) {
+    const rr = await RoomRate.find(roomRateId)
+    if (!rr || !rr.hubRatePlanId) return { updated: 0, skipped: true }
+
+    const today = DateTime.now().startOf('day')
+    const from = rr.rateDate ?? rr.effectiveFrom ?? today
+    const to =
+      rr.rateDate ?? rr.effectiveTo ?? from.plus({ days: (env.get('HUB_RESYNC_DAYS', 365) ?? 365) - 1 })
+
+    return this.pushBaseRates(rr.hotelId, DateTime.fromISO(from.toISODate()!), DateTime.fromISO(to.toISODate()!), [rr.id])
+  }
+
+  /**
+   * Full rate resync of every hotel linked to the hub, from today for `days`
+   * days. Catches changes the save hook did not see (bulk SQL updates).
+   */
+  static async resyncAll(days = env.get('HUB_RESYNC_DAYS', 365) ?? 365) {
+    if (!isHubEnabled()) return []
+    const hotels = await Hotel.query().whereNotNull('hub_api_key').select(['id'])
+    const from = DateTime.now().startOf('day')
+    const to = from.plus({ days: Math.max(1, days) - 1 })
+    const results: Array<{ hotelId: number; updated?: number; error?: string }> = []
+    for (const { id } of hotels) {
+      try {
+        const res = await this.pushBaseRates(id, from, to)
+        results.push({ hotelId: id, updated: res.updated })
+      } catch (err) {
+        logger.error({ err, hotelId: id }, '[Hub] nightly rate resync failed')
+        results.push({ hotelId: id, error: (err as any)?.message ?? String(err) })
+      }
+    }
+    return results
   }
 
   /**

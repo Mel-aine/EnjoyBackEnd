@@ -69,6 +69,7 @@ export const middleware = router.named({
   permission: () => import('#middleware/permission_middleware'),
   loginRateLimit: () => import('#middleware/login_rate_limit_middleware'),
   mfaRateLimit: () => import('#middleware/mfa_rate_limit_middleware'),
+  hubControl: () => import('#middleware/hub_control_middleware'),
 })
 
 

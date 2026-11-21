@@ -72,6 +72,25 @@ export function hubOnReservationChange(model: any) {
   } catch {}
 }
 
+/**
+ * Price change: the saved room rate is pushed to the hub right away (debounced).
+ * Same rule as the other hooks: lazy import, never throws.
+ */
+export function hubOnRoomRateChange(model: any) {
+  try {
+    if (!enabled()) return
+    if (!model?.hubRatePlanId) return
+    const copy = {
+      id: model?.id,
+      hubRatePlanId: model?.hubRatePlanId,
+      hotelId: model?.hotelId,
+    }
+    import('#services/hub_rate_sync')
+      .then(({ default: HubRateSync }) => HubRateSync.pushRateLater(copy as any))
+      .catch(() => {})
+  } catch {}
+}
+
 /** Same as HUB_CANCEL_STATUSES (hub_cancel_sync.ts), kept here to avoid importing models. */
 const CANCEL_STATUSES = ['cancelled', 'voided']
 

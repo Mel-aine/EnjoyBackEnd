@@ -1972,3 +1972,25 @@ router.post('/whatsapp/templates/refresh', whatsappTemplatesController.refreshSt
 
 }).prefix('api/console').use(middleware.auth({ guards: ['api'] }))
 
+
+/*
+|--------------------------------------------------------------------------
+| Hub control API (connect-hub)
+|--------------------------------------------------------------------------
+| Called by the hub console (Administration > Liaison PMS). Contract:
+| connect-hub-backend/docs/enjoy-control-api.md. Everything is behind the
+| shared HUB_CONTROL_KEY; without it these routes answer 503.
+*/
+const HubControlController = () => import('#controllers/hub_control_controller')
+
+router
+  .group(() => {
+    router.get('/hotels', [HubControlController, 'hotels'])
+    router.get('/hotels/:hotelId/status', [HubControlController, 'status'])
+    router.post('/hotels/:hotelId/link', [HubControlController, 'link'])
+    router.post('/hotels/:hotelId/sync-catalog', [HubControlController, 'syncCatalog'])
+    router.post('/hotels/:hotelId/push-ari', [HubControlController, 'pushAri'])
+    router.post('/hotels/:hotelId/unlink', [HubControlController, 'unlink'])
+  })
+  .prefix('/api/hub-control')
+  .use([middleware.hubControl()])

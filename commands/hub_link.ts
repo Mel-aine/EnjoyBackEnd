@@ -5,6 +5,7 @@ import Hotel from '#models/hotel'
 import RoomType from '#models/room_type'
 import RoomRate from '#models/room_rate'
 import HubService from '#services/hub_service'
+import HubLinkService from '#services/hub_link_service'
 
 /**
  * Links an enjoy hotel to the Hub OTA and maps its room types and rates.
@@ -17,6 +18,9 @@ import HubService from '#services/hub_service'
  *
  * Mappings are written with plain UPDATE queries so that the RoomType and
  * RoomRate model hooks (which push to Channex) are not triggered.
+ *
+ * The link itself (key, property, webhook) lives in HubLinkService, shared with
+ * the hub control API.
  */
 export default class HubLink extends BaseCommand {
   static commandName = 'hub:link'
@@ -134,10 +138,7 @@ export default class HubLink extends BaseCommand {
     }
 
     if (this.unlink) {
-      hotel.hubApiKey = null
-      hotel.hubWebhookSecret = null
-      hotel.hubPropertyId = null
-      await hotel.save()
+      await HubLinkService.unlink(hotel)
       this.logger.success(`Hotel ${hotel.id} unlinked from the hub`)
       return
     }
@@ -153,58 +154,19 @@ export default class HubLink extends BaseCommand {
       return
     }
 
-    if (this.apiKey && !this.skipCheck) {
-      if (!env.get('HUB_BASE_URL')) {
-        this.logger.error(
-          'HUB_BASE_URL is not set: cannot check the API key (use --skip-check to skip)'
-        )
-        this.exitCode = 1
-        return
-      }
-      try {
-        await new HubService(this.apiKey).getWebhook()
-        this.logger.info('API key accepted by the hub')
-      } catch (err) {
-        this.logger.error(`The hub rejected the API key: ${(err as any)?.message}`)
-        this.exitCode = 1
-        return
-      }
-    }
-
-    if (this.apiKey) hotel.hubApiKey = this.apiKey
-    if (this.property) hotel.hubPropertyId = this.property
-    if (this.apiKey || this.property) {
-      await hotel.save()
-      this.logger.success(`Hotel ${hotel.id} linked (hub property ${hotel.hubPropertyId ?? '-'})`)
-    }
-
-    if (this.webhookUrl) {
-      if (!hotel.hubApiKey || !env.get('HUB_BASE_URL')) {
-        this.logger.error('--webhook-url needs an API key (--api-key) and HUB_BASE_URL')
-        this.exitCode = 1
-        return
-      }
-      // The hub shows the secret only when it creates it: rotate when we do not hold it.
-      const rotate = !!this.rotateSecret || !hotel.hubWebhookSecret
-      try {
-        const res: any = await new HubService(hotel.hubApiKey).putWebhook(this.webhookUrl, rotate)
-        const secret = res?.data?.secret
-        if (secret) {
-          hotel.hubWebhookSecret = secret
-          await hotel.save()
-          this.logger.success('Webhook registered, signing secret stored (encrypted)')
-        } else if (!hotel.hubWebhookSecret) {
-          this.logger.error('The hub did not return a secret: run again with --rotate-secret')
-          this.exitCode = 1
-          return
-        } else {
-          this.logger.success('Webhook URL updated (existing secret kept)')
-        }
-      } catch (err) {
-        this.logger.error(`Webhook registration failed: ${(err as any)?.message}`)
-        this.exitCode = 1
-        return
-      }
+    try {
+      const outcome = await HubLinkService.link(hotel, {
+        apiKey: this.apiKey,
+        hubPropertyId: this.property,
+        webhookUrl: this.webhookUrl,
+        rotateSecret: this.rotateSecret,
+        skipKeyCheck: this.skipCheck,
+      })
+      for (const message of outcome.messages) this.logger[message.level](message.message)
+    } catch (err) {
+      this.logger.error((err as Error).message)
+      this.exitCode = 1
+      return
     }
 
     if (this.autoMap) {

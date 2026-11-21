@@ -22,6 +22,12 @@ export type HubOversold = {
   sold: number
 }
 
+/** One line of a synchronization report, replayed by the CLI and the control API. */
+export type HubSyncMessage = {
+  level: 'info' | 'success' | 'warning'
+  message: string
+}
+
 export type HubRateItem = {
   rate_plan_id: number
   date: string
@@ -221,10 +227,16 @@ export default class HubService {
     return this.request('GET', '/pms/webhook')
   }
 
-  async putWebhook(url: string | null, rotateSecret = false) {
+  /**
+   * Registers the URL the hub calls on a new booking. `hubPropertyId` scopes the
+   * registration to one property, so two hotels of the same hub account keep
+   * their own URL and signing secret.
+   */
+  async putWebhook(url: string | null, rotateSecret = false, hubPropertyId?: number | null) {
     return this.request('PUT', '/pms/webhook', {
       url,
       ...(rotateSecret ? { rotate_secret: true } : {}),
+      ...(hubPropertyId ? { property_id: Number(hubPropertyId) } : {}),
     })
   }
 }
