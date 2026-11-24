@@ -83,9 +83,11 @@ export default class HubCatalogSync {
       client.listRatePlans(),
     ])
     const hubRtByExternal = new Map<string, number>()
+    const hubRtById = new Map<number, any>()
     for (const rt of hubRoomTypes) {
       if (!propertyId || Number(rt.propertyId) === Number(propertyId)) {
         hubRtByExternal.set(String(rt.externalId), Number(rt.id))
+        hubRtById.set(Number(rt.id), rt)
       }
     }
 
@@ -94,7 +96,19 @@ export default class HubCatalogSync {
       .where((q) => q.where('is_deleted', false).orWhereNull('is_deleted'))
     const hubRtOfLocal = new Map<number, number>()
     for (const rt of roomTypes) {
-      const existing = rt.hubRoomTypeId ?? hubRtByExternal.get(String(rt.id)) ?? null
+      // A mapping can outlive the hub room type (hub database reset, property
+      // deleted). Reusing it blindly makes sync-catalog report "reused" while
+      // the hub has nothing, and every ARI push then targets a missing id.
+      const mapped = rt.hubRoomTypeId ? hubRtById.get(Number(rt.hubRoomTypeId)) : null
+      if (rt.hubRoomTypeId && !mapped) {
+        log(
+          'warning',
+          `Room type ${rt.id} pointed to hub #${rt.hubRoomTypeId}, which no longer exists: remapping it`
+        )
+      }
+      const existing = mapped
+        ? Number(mapped.id)
+        : hubRtByExternal.get(String(rt.id)) ?? null
       let hubId: number | null = existing
       if (!existing) {
         const count = await Room.query().where('room_type_id', rt.id).count('* as total')
@@ -131,14 +145,29 @@ export default class HubCatalogSync {
 
     // 3. Rate plans
     const hubPlanByExternal = new Map<string, any>()
-    for (const plan of hubPlans)
+    const hubPlanById = new Map<number, any>()
+    for (const plan of hubPlans) {
       hubPlanByExternal.set(`${plan.roomTypeId}:${plan.externalId}`, plan)
+      hubPlanById.set(Number(plan.id), plan)
+    }
 
     const rates = await RoomRate.query().where('hotel_id', hotel.id).preload('rateType')
     for (const rr of rates) {
       const hubRt = hubRtOfLocal.get(rr.roomTypeId)
       if (!hubRt) continue
-      const existing = rr.hubRatePlanId ?? hubPlanByExternal.get(`${hubRt}:${rr.id}`)?.id ?? null
+      const mapped =
+        rr.hubRatePlanId && Number(hubPlanById.get(Number(rr.hubRatePlanId))?.roomTypeId) === hubRt
+          ? hubPlanById.get(Number(rr.hubRatePlanId))
+          : null
+      if (rr.hubRatePlanId && !mapped) {
+        log(
+          'warning',
+          `Room rate ${rr.id} pointed to hub rate plan #${rr.hubRatePlanId}, which no longer exists: remapping it`
+        )
+      }
+      const existing = mapped
+        ? Number(mapped.id)
+        : hubPlanByExternal.get(`${hubRt}:${rr.id}`)?.id ?? null
       let hubPlanId: number | null = existing ? Number(existing) : null
       if (!existing) {
         const roomType = roomTypes.find((t) => t.id === rr.roomTypeId)

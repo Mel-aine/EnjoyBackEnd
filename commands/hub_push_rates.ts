@@ -65,7 +65,12 @@ export default class HubPushRates extends BaseCommand {
         `${res.updated} price(s) updated (${start.toISODate()} → ${to.toISODate()})`
       )
     } catch (err) {
-      this.logger.error(`Push failed: ${(err as any)?.code ?? (err as any)?.message}`)
+      const body = (err as any)?.body
+      this.logger.error(
+        `Push failed: ${(err as any)?.code ?? (err as any)?.message}${
+          body ? ` — ${JSON.stringify(body).slice(0, 800)}` : ''
+        }`
+      )
       this.exitCode = 1
     }
   }
